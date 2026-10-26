@@ -7,22 +7,26 @@ Drag a block onto the existing **Desk** item in Roam's left sidebar to add a nat
 ## How it works
 
 1. Drag a block's bullet without holding a modifier key.
-2. Hover over the entire Desk row. A highlight confirms the drop target.
+2. Hover over the Desk row. Its original label stays visible; a faint background and small plus confirm the drop target.
 3. Drop to add this native-format entry at the top of your bound Desk page:
 
 ```text
 {{embed-path: ((BLOCK_UID)) closed}}
 ```
 
-4. After readback confirms the entry, choose **View** or **Undo** if needed. The plugin does not navigate automatically or change the clipboard.
+4. After readback, a small check appears in the same row. Hover or keyboard-focus the row to reveal **Undo**. Click the original Desk entry to open it. There is no bottom-right notification, automatic navigation, or clipboard change.
+
+Progress and failures also stay at Desk. A warning retains the full error in its native tooltip and accessible label, while a visually hidden live region announces outcomes. The capture engine still preserves the original block.
+
+See the [quiet interaction design](https://github.com/404KSG/roam-desk-drop/blob/main/docs/quiet-interaction.md) for the Linear references, visual contract, and safety boundaries.
 
 The entry is an embed, not a separate copy. Repeated drops do not add duplicates or reorder existing entries. Entries remain native Roam content after the plugin is uninstalled.
 
 ## Sandbox demonstration
 
-![Desk Drop in the local in-memory test harness](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.1)
+![Desk Drop: idle, drag target, added, and error states](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-interaction.png?v=0.1.2)
 
-This screenshot shows the local test harness, **not a live Roam graph**. The source block remains unchanged while the simulated Desk receives the native embed string.
+These states come from the local test harness, **not a live Roam graph**. The [full sandbox screenshot](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.2) shows the unchanged source block and the native embed string received by the simulated Desk.
 
 ## Prototype scope
 
@@ -39,15 +43,15 @@ This screenshot shows the local test harness, **not a live Roam graph**. The sou
 - Undo can delete only an entry created by the current plugin instance. It checks the entry's text, edit time, parent, children, and backlinks first, and refuses if the entry has changed. It does not call global Undo.
 - Failed writes are checked by their pre-generated UID. If the result cannot be confirmed, repeat attempts for that block are paused for the current instance rather than blindly retried.
 - Queueing and deduplication are local to one plugin instance. They are not distributed transactions or atomic conditional deletes.
-- Unloading removes listeners, highlights, notices, and injected styles. It cannot forcibly cancel an operation already submitted to Roam.
+- Unloading removes listeners, highlights, inline feedback, the hidden live region, and injected styles. It cannot forcibly cancel an operation already submitted to Roam.
 - No AI service, additional API key, analytics, or extra network requests are used. Graph changes still use Roam's own synchronization and permissions. A personal Desk is not a separate privacy boundary.
 - Direct Desk self-embedding and blocks already inside a Desk page are rejected. This prototype does not guarantee global cycle detection for complex dynamic renderers or cross-block embeds.
 
 ## Validation
 
 - **38 automated tests** pass for capture, source preservation, deduplication, undo guards, graph changes, cancellation, rebinding, ambiguous write outcomes, payload validation, and untranslated-copy detection.
-- **10 browser integration checks** pass against both the source entry point and the compiled bundle in an in-memory fixture.
-- A browser-driven pointer drag produced trusted `dragstart` and `drop` events; the fixture received an embed, and Undo removed only the new entry.
+- **18 browser integration checks** pass against both the source entry point and the compiled bundle in a focused in-memory fixture. They include geometry, local feedback, pending writes, focused Undo, stale results, errors, attribute restoration, and compact/dark sidebars.
+- A browser-driven pointer drag produced trusted `dragstart` and `drop` events; the fixture received an embed, and a real mouse click on inline Undo removed only the new entry. Reduced-motion and compact dark-sidebar presentation checks also pass.
 - Read-only inspection of a live Roam client confirmed the required methods and metadata shapes. **No live-graph create/delete test has been performed.**
 
 See [verification details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) for the remaining checks. Event-level modifier tests are not a substitute for testing alongside the actual Drag References extension.
@@ -58,7 +62,7 @@ See [verification details](https://github.com/404KSG/roam-desk-drop/blob/main/do
 - `src/desk-capture.js`: capture validation, deduplication, readback, and guarded Undo.
 - `src/roam-adapter.js`: public SDK calls and the Desk compatibility layer.
 - `src/drop-payload.js`: native drag-payload validation.
-- `src/runtime.js` and `src/ui.js`: the drop target, notices, and lifecycle cleanup.
+- `src/runtime.js` and `src/ui.js`: the drop target, row-local feedback, and lifecycle cleanup.
 - `test/fixtures/`: the isolated in-memory browser harness.
 - `docs/design.md` and `docs/verification.md`: scope, test interfaces, and verification status.
 
@@ -71,7 +75,7 @@ npm test
 npm run fixture
 ```
 
-Open `http://127.0.0.1:4381/` to test the source entry point, or `http://127.0.0.1:4381/?bundle=1` to test `extension.js`. The fixture uses in-memory data and does not connect to a real Roam graph.
+Open `http://127.0.0.1:4381/` to test the source entry point, or `http://127.0.0.1:4381/?bundle=1` to test `extension.js`. Click the test button with the page focused; programmatic checks in a background document can miss real focus/blur behavior. The fixture uses in-memory data and does not connect to a real Roam graph.
 
 To build, use esbuild 0.28.1 from the project's development dependencies, or point to an existing executable:
 

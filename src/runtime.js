@@ -9,13 +9,14 @@ const AMBIGUOUS = '.rm-reference-container,.rm-reference-item,.roam-query,.roam-
 export function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, getAPI = () => windowRef.roamAlphaAPI }) {
   const capture = createDeskCapture({ getAPI });
   const controller = new AbortController();
-  let loaded = false, stopped = false, session = null, context;
+  let loaded = false, stopped = false, session = null, context, feedbackVersion = 0;
   const ui = createDeskDropUI({ documentRef, windowRef, onActionError: showError });
 
-  function showError(error) {
+  function showError(error, target = documentRef.querySelector(DESK_SELECTOR)) {
     if (!loaded || error?.code === 'ABORTED') return;
-    ui.show(error instanceof DeskDropError ? error.message : 'Could not complete the operation. Check Desk; Desk Drop has not moved the original block.', { kind: 'error', persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : 'Could not complete the operation. Check Desk; Desk Drop has not moved the original block.', { target, state: 'error', persistent: true });
   }
+  function clearFeedback() { feedbackVersion++; ui.clearFeedback(); }
   function resetDrag() { session = null; ui.clearHighlight(); }
   function transferEffect(transfer) {
     const allowed = transfer?.effectAllowed || 'uninitialized';
@@ -34,6 +35,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     if (event.defaultPrevented || hasModifier(event)) return;
     const bullet = event.target?.closest?.('.rm-bullet');
     if (!bullet || bullet.closest(AMBIGUOUS) || !bullet.closest('.roam-article,.rm-sidebar-outline,.rm-sidebar-window')) return;
+    clearFeedback();
     try {
       session = {
         origin: capture.getContext(),
@@ -63,33 +65,28 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     if (!target || !source || event.defaultPrevented || hasModifier(event) || !hasRoamPayload(event.dataTransfer) || !transferEffect(event.dataTransfer)) return;
     // Intercept only confirmed Desk drops; leave other targets and modifier-key drags alone.
     event.preventDefault(); event.stopPropagation();
+    const version = ++feedbackVersion;
     try {
       if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', 'The graph or user changed during the drag. Start a new drag.');
       const uids = readDropPayload(event.dataTransfer, source.origin, source.sourceUid);
-      ui.show('Adding to Desk...', { persistent: true });
+      ui.show('Adding to Desk.', { target, state: 'pending', persistent: true });
       const result = await capture.capture({ uids, origin: source.origin, signal: controller.signal });
-      if (!loaded) return;
-      const actions = [{ id: 'view', label: 'View', run: () => {
-        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', 'Return to the original graph to view Desk.');
-        const row = documentRef.querySelector(DESK_SELECTOR);
-        if (!row) throw new DeskDropError('DESK_NOT_VISIBLE', 'The native Desk entry was not found. Open Desk from the left sidebar.');
-        row.click();
-      } }];
-      if (result.receipt) actions.push({ id: 'undo', label: 'Undo', run: async () => {
+      if (!loaded || version !== feedbackVersion) return;
+      const undo = result.receipt ? async () => {
         await capture.undo(result.receipt, { signal: controller.signal });
-        if (loaded) ui.show('Removed this Desk entry. Original block kept.');
-      } });
-      ui.show(result.status === 'existing' ? 'Already on Desk. No duplicate added.' : 'Added to Desk. Original kept in place.', { actions });
-    } catch (error) { showError(error); }
+        if (loaded && version === feedbackVersion) ui.show('Removed this Desk entry. Original block kept.', { target, state: 'removed' });
+      } : undefined;
+      ui.show(result.status === 'existing' ? 'Already on Desk. No duplicate added.' : 'Added to Desk. Original kept in place.', { target, state: result.status === 'existing' ? 'existing' : 'added', undo });
+    } catch (error) { if (version === feedbackVersion) showError(error, target); }
   }
-  function onKeyDown(event) { if (event.key === 'Escape') resetDrag(); }
+  function onKeyDown(event) { if (event.key === 'Escape') { resetDrag(); clearFeedback(); } }
   function onHashChange() {
     resetDrag();
     try {
       const next = capture.getContext();
-      if (!sameContext(context, next)) ui.clearNotice();
+      if (!sameContext(context, next)) clearFeedback();
       context = next;
-    } catch { ui.clearNotice(); }
+    } catch { clearFeedback(); }
   }
   const windowListeners = [['dragstart', onDragStart], ['dragend', resetDrag], ['blur', resetDrag], ['keydown', onKeyDown], ['hashchange', onHashChange]];
   const documentListeners = [['dragenter', onDragOver], ['dragover', onDragOver], ['dragleave', onDragLeave], ['drop', onDrop]];

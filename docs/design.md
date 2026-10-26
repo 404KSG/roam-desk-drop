@@ -9,7 +9,8 @@ Decision confirmed on October 26, 2026: dropping onto Desk adds a native embed. 
 - Create `{{embed-path: ((uid)) closed}}` at the top of Desk. Do not add another entry when a matching embed or embed-path entry already exists.
 - Preserve the source UID, text, parent, order, and children. Do not move or update the source.
 - Preserve the native Desk click behavior. Do not navigate automatically or write to the clipboard after capture.
-- View opens native Desk on request. Undo may remove only an entry created by this instance that has not been changed, referenced, or given children. Do not call global Undo.
+- Clicking the original Desk row opens native Desk. Inline Undo may remove only an entry created by this instance that has not been changed, referenced, or given children. Do not call global Undo.
+- Keep interaction feedback local to the Desk row, with no bottom-right toast or full-row instructional text. See [quiet interaction design](quiet-interaction.md) for the visual contract and sources.
 
 ## Test interfaces
 

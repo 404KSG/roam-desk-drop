@@ -45,6 +45,7 @@ document.querySelector('#desk').addEventListener('click', () => { navigation++; 
 document.querySelector('#stop').addEventListener('click', () => runtime.stop());
 
 async function runTests() {
+  assert(document.hasFocus(), 'Focus the fixture before running pointer/focus integration checks');
   const report = [];
   async function check(name, fn) {
     reset();
@@ -63,19 +64,24 @@ async function runTests() {
     assert(JSON.stringify(fake.records.get('block0001')) === JSON.stringify(before), 'Source block changed');
     assert(navigation === 0, 'Unexpected automatic navigation');
   });
-  await check('View and Undo buttons work; Undo preserves the source', async () => {
+  await check('Native Desk navigation and inline Undo work without a toast', async () => {
     const dt = begin(); event('dragover', document.querySelector('#desk'), dt); event('drop', document.querySelector('#desk'), dt);
     await waitFor(() => document.querySelector('[data-rr-desk-drop-action="undo"]'));
-    document.querySelector('[data-rr-desk-drop-action="view"]').click();
-    assert(navigation === 1, 'View did not use native navigation');
-    document.querySelector('[data-rr-desk-drop-action="undo"]').click();
+    document.querySelector('#desk').click();
+    assert(navigation === 1, 'Native Desk navigation changed');
+    assert(!document.querySelector('.rr-desk-drop-notice'), 'A global toast was created');
+    assert(document.querySelector('#desk [data-rr-desk-drop-action="undo"]'), 'Undo is not inline');
+    const undo = document.querySelector('[data-rr-desk-drop-action="undo"]');
+    // A real click focuses the button first; .click() alone misses blur reentrancy.
+    undo.focus(); undo.click();
     await waitFor(() => fake.desk()[':block/children'].length === 0);
     assert(fake.block('block0001')[':block/string'] === 'Original content', 'Undo changed the source');
+    assert(navigation === 1, 'Undo bubbled into native navigation');
   });
   await check('Repeated drops do not create duplicate entries', async () => {
     for (let i = 0; i < 2; i++) {
       const dt = begin(); event('dragover', document.querySelector('#desk'), dt); event('drop', document.querySelector('#desk'), dt);
-      await waitFor(() => document.querySelector('.rr-desk-drop-notice')?.textContent.includes(i ? 'Already on Desk' : 'Added to Desk'));
+      await waitFor(() => document.querySelector('#desk').dataset.rrDeskDrop === (i ? 'existing' : 'added'));
     }
     assert(fake.desk()[':block/children'].length === 1, 'Duplicate entry created');
     assert(!document.querySelector('[data-rr-desk-drop-action="undo"]'), 'An existing entry must not receive an Undo action');
@@ -117,11 +123,11 @@ async function runTests() {
   });
   await check('Cancel and unload clear highlights; unloading removes listeners', async () => {
     let dt = begin(); event('dragover', document.querySelector('#desk'), dt);
-    assert(document.querySelector('.rr-desk-drop-hint'), 'Highlight is missing');
+    assert(document.querySelector('#desk[data-rr-desk-drop="ready"]'), 'Highlight is missing');
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    assert(!document.querySelector('.rr-desk-drop-hint'), 'Highlight remained after cancellation');
+    assert(!document.querySelector('.rr-desk-drop-accessory'), 'Highlight remained after cancellation');
     dt = begin(); event('dragover', document.querySelector('#desk'), dt); runtime.stop();
-    assert(!document.querySelector('.rr-desk-drop-hint') && !document.querySelector('[data-rr-desk-drop-style]'), 'UI remained after unload');
+    assert(!document.querySelector('.rr-desk-drop-accessory,.rr-desk-drop-live,[data-rr-desk-drop-style]'), 'UI remained after unload');
     assert(!event('dragover', document.querySelector('#desk'), dt).defaultPrevented, 'Listener remained after unload');
     event('drop', document.querySelector('#desk'), dt); await new Promise(requestAnimationFrame);
     assert(fake.desk()[':block/children'].length === 0, 'Write occurred after unload');
@@ -139,9 +145,103 @@ async function runTests() {
     event('drop', document.querySelector('#desk'), dt); await new Promise(requestAnimationFrame);
     assert(fake.desk()[':block/children'].length === 0, 'Cross-graph write');
   });
+  await check('Drag feedback preserves native label, icon, dimensions, and adjacent rows', async () => {
+    const row = document.querySelector('#desk'), label = document.querySelector('#desk-label'), nativeIcon = document.querySelector('#desk-icon');
+    const shape = node => JSON.stringify(node.getBoundingClientRect().toJSON());
+    const before = [row, label, nativeIcon, row.nextElementSibling].map(shape);
+    const dt = begin(); event('dragover', row, dt);
+    assert(row.textContent.trim() === 'Desk', 'Drag added instructional copy');
+    assert(!document.querySelector('.rr-desk-drop-hint,.rr-desk-drop-notice'), 'Old overlay UI returned');
+    assert(JSON.stringify([row, label, nativeIcon, row.nextElementSibling].map(shape)) === JSON.stringify(before), 'Navigation geometry changed');
+    assert(row.scrollWidth <= row.clientWidth, 'Feedback overflows the row');
+    assert(getComputedStyle(row.querySelector('.rr-desk-drop-accessory')).pointerEvents === 'none', 'Feedback intercepts pointer input');
+    window.dispatchEvent(new Event('dragend'));
+    assert(!row.hasAttribute('data-rr-desk-drop') && !row.querySelector('.rr-desk-drop-accessory'), 'Drag marker remained');
+  });
+  await check('Pending writes stay local; screen-reader feedback is not a visible banner', async () => {
+    let release; fake.hooks.beforeCreate = () => new Promise(resolve => { release = resolve; });
+    const row = document.querySelector('#desk'), dt = begin(); event('drop', row, dt);
+    await waitFor(() => release);
+    assert(row.dataset.rrDeskDrop === 'pending' && row.getAttribute('aria-busy') === 'true', 'Missing pending state');
+    assert(row.querySelector('.rr-desk-drop-spinner').getBoundingClientRect().width > 0, 'Spinner has no size');
+    assert(row.textContent.trim() === 'Desk', 'Pending state added visible copy');
+    const live = document.querySelector('.rr-desk-drop-live');
+    assert(live.getAttribute('role') === 'status' && live.textContent.includes('Adding'), 'No accessible progress');
+    assert(live.getBoundingClientRect().width === 1, 'Live status is visible');
+    release(); await waitFor(() => row.dataset.rrDeskDrop === 'added');
+    assert(!row.hasAttribute('aria-busy'), 'Busy state remained after success');
+    assert(!document.querySelector('.rr-desk-drop-notice'), 'Global notification returned');
+  });
+  await check('Errors retain details at Desk instead of displaying a global notification', async () => {
+    fake.hooks.beforeCreate = () => { throw new Error('Simulated unavailable writer'); };
+    const row = document.querySelector('#desk'), dt = begin(); event('drop', row, dt);
+    await waitFor(() => row.dataset.rrDeskDrop === 'error');
+    const warning = row.querySelector('.rr-desk-drop-error');
+    assert(warning.title.length > 20 && warning.getAttribute('aria-label') === warning.title, 'Error detail was lost');
+    assert(row.textContent.trim() === 'Desk' && !document.querySelector('.rr-desk-drop-notice'), 'Error added visible prose or a toast');
+    assert(fake.desk()[':block/children'].length === 0, 'Failed write claimed an entry');
+    warning.focus(); assert(document.activeElement === warning, 'Warning is not keyboard-accessible');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert(!row.querySelector('.rr-desk-drop-accessory'), 'Escape did not dismiss error feedback');
+  });
+  await check('Unsafe inline Undo reports an error without deleting an edited entry', async () => {
+    const row = document.querySelector('#desk'), dt = begin(); event('drop', row, dt);
+    await waitFor(() => row.dataset.rrDeskDrop === 'added');
+    const uid = fake.desk()[':block/children'][0][':block/uid'];
+    fake.records.get(uid).string += ' Edited notes';
+    row.querySelector('[data-rr-desk-drop-action="undo"]').click();
+    await waitFor(() => row.dataset.rrDeskDrop === 'error');
+    assert(fake.records.has(uid) && fake.desk()[':block/children'].length === 1, 'Unsafe Undo deleted the entry');
+    assert(navigation === 0, 'Unsafe Undo navigated');
+  });
+  await check('Latest accepted drop owns the inline Undo, even with queued writes', async () => {
+    let release; fake.hooks.beforeCreate = () => new Promise(resolve => { release = resolve; });
+    const row = document.querySelector('#desk'); event('drop', row, begin());
+    await waitFor(() => release);
+    event('drop', row, begin('#child-bullet')); fake.hooks.beforeCreate = null; release();
+    await waitFor(() => fake.desk()[':block/children'].length === 2 && row.dataset.rrDeskDrop === 'added');
+    row.querySelector('[data-rr-desk-drop-action="undo"]').click();
+    await waitFor(() => fake.desk()[':block/children'].length === 1);
+    assert(fake.desk()[':block/children'][0][':block/string'] === '{{embed-path: ((block0001)) closed}}', 'Undo belongs to a stale drop');
+    assert(fake.records.get('block0001').children[0] === 'child0001', 'Source hierarchy changed');
+  });
+  await check('Graph changes discard feedback from an already submitted write', async () => {
+    let release; fake.hooks.beforeCreate = () => new Promise(resolve => { release = resolve; });
+    const row = document.querySelector('#desk'); event('drop', row, begin());
+    await waitFor(() => release);
+    fake.api.graph.name = 'Other graph'; window.dispatchEvent(new Event('hashchange'));
+    assert(!row.hasAttribute('data-rr-desk-drop'), 'Old graph feedback remained');
+    release(); await waitFor(() => fake.desk()[':block/children'].length === 1);
+    await new Promise(requestAnimationFrame);
+    assert(!row.hasAttribute('data-rr-desk-drop') && !document.querySelector('.rr-desk-drop-accessory'), 'Late feedback leaked into another graph');
+  });
+  await check('Unload restores pre-existing attributes and removes all plugin UI', async () => {
+    const row = document.querySelector('#desk'); row.setAttribute('data-rr-desk-drop', 'pre-existing'); row.setAttribute('aria-busy', 'false');
+    let release; fake.hooks.beforeCreate = () => new Promise(resolve => { release = resolve; });
+    event('drop', row, begin()); await waitFor(() => release); runtime.stop();
+    assert(row.getAttribute('data-rr-desk-drop') === 'pre-existing' && row.getAttribute('aria-busy') === 'false', 'Existing attributes were not restored');
+    assert(!document.querySelector('.rr-desk-drop-accessory,.rr-desk-drop-live,[data-rr-desk-drop-style]'), 'Plugin UI survived unload');
+    row.removeAttribute('data-rr-desk-drop'); row.removeAttribute('aria-busy');
+    release(); await waitFor(() => fake.desk()[':block/children'].length === 1); await new Promise(requestAnimationFrame);
+    assert(!document.querySelector('.rr-desk-drop-accessory'), 'Late completion recreated unloaded UI');
+  });
+  await check('Compact and dark sidebars preserve their native label and foreground', async () => {
+    const row = document.querySelector('#desk'), sidebar = row.closest('.roam-sidebar-container');
+    const oldStyle = sidebar.getAttribute('style');
+    try {
+      sidebar.style.width = '160px'; sidebar.style.background = '#1d1d20'; sidebar.style.color = '#dedee1';
+      const color = getComputedStyle(row).color, before = JSON.stringify(row.getBoundingClientRect().toJSON());
+      event('dragover', row, begin());
+      assert(getComputedStyle(row).color === color, 'Native foreground was replaced');
+      assert(JSON.stringify(row.getBoundingClientRect().toJSON()) === before, 'Compact row changed size');
+      assert(row.scrollWidth <= row.clientWidth, 'Compact row overflows');
+      const label = document.querySelector('#desk-label').getBoundingClientRect(), accessory = row.querySelector('.rr-desk-drop-accessory').getBoundingClientRect();
+      assert(label.right + 8 < accessory.left, 'Compact feedback overlaps the label');
+    } finally { if (oldStyle === null) sidebar.removeAttribute('style'); else sidebar.setAttribute('style', oldStyle); }
+  });
   window.__deskDropTestResults = report;
   return report;
 }
 document.querySelector('#run-tests').addEventListener('click', runTests);
-window.__deskDropFixture = { reset, runTests, snapshot: () => fake.snapshot(), runtime: () => runtime };
+window.__deskDropFixture = { reset, runTests, snapshot: () => fake.snapshot(), runtime: () => runtime, fake: () => fake };
 reset();

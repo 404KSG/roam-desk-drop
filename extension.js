@@ -244,31 +244,124 @@ function readDropPayload(transfer, origin, expectedSourceUid) {
 }
 
 // src/ui.js
+var ROW = ".roam-app > .roam-sidebar-container .rm-left-sidebar__desk[data-rr-desk-drop]";
 var CSS = `
-[data-rr-desk-drop="ready"] { position: relative; }
-.rr-desk-drop-hint { position:absolute; inset:0; display:flex; align-items:center; box-sizing:border-box; padding:0 10px; border:1px solid #a7b6c2; border-radius:6px; background:#f5f8fa; color:#5c7080; font:inherit; font-size:12px; white-space:nowrap; pointer-events:none; }
-.rr-desk-drop-notice { position:fixed; right:20px; bottom:80px; z-index:20; max-width:min(390px,calc(100vw - 40px)); padding:12px 14px; box-sizing:border-box; border:1px solid #e1e8ed; border-radius:8px; background:#fff; color:#202b33; box-shadow:0 2px 10px rgba(16,22,26,.12); font:14px/1.5 system-ui,sans-serif; }
-.rr-desk-drop-notice[data-kind="error"] { border-color:#d99e0b; }
-.rr-desk-drop-notice__actions { display:flex; gap:6px; margin-top:8px; }
-.rr-desk-drop-notice button { border:1px solid #e1e8ed; border-radius:4px; padding:3px 8px; background:#f5f8fa; color:#202b33; font:inherit; cursor:pointer; }
-.rr-desk-drop-notice button:focus-visible { outline:2px solid #137cbd; outline-offset:2px; }
-.rr-desk-drop-notice button:disabled { opacity:.6; cursor:wait; }
+${ROW} { position:relative; }
+${ROW}[data-rr-desk-drop="ready"] {
+  background-color:color-mix(in srgb,currentColor 7%,transparent) !important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 16%,transparent) !important;
+  border-radius:6px;
+}
+.rr-desk-drop-accessory { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:6px; height:20px; color:inherit; pointer-events:none; }
+.rr-desk-drop-icon { display:block; width:14px; height:14px; flex:none; opacity:.8; }
+.rr-desk-drop-error { color:var(--rr-desk-drop-warning,#a87936); pointer-events:auto; cursor:help; border-radius:3px; }
+.rr-desk-drop-undo { all:unset; box-sizing:border-box; padding:2px 3px; border-radius:3px; color:inherit; font:inherit; font-size:11px; line-height:16px; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 100ms ease; }
+${ROW}:hover .rr-desk-drop-undo, ${ROW}:focus-within .rr-desk-drop-undo { opacity:.8; pointer-events:auto; }
+${ROW} .rr-desk-drop-undo:hover { opacity:1; text-decoration:underline; text-underline-offset:3px; }
+.rr-desk-drop-undo:focus-visible, .rr-desk-drop-error:focus-visible { outline:2px solid currentColor; outline-offset:2px; opacity:1; }
+.rr-desk-drop-spinner { display:block; box-sizing:border-box; width:13px; height:13px; border:1.5px solid currentColor; border-right-color:transparent; border-radius:50%; opacity:.65; animation:rr-desk-drop-spin 800ms linear infinite; }
+.rr-desk-drop-live { position:absolute !important; top:0 !important; left:0 !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip-path:inset(50%) !important; white-space:nowrap !important; border:0 !important; }
+@keyframes rr-desk-drop-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .rr-desk-drop-spinner { animation:none; } .rr-desk-drop-undo { transition:none; } }
 `;
 function createDeskDropUI({ documentRef, windowRef, onActionError }) {
-  let style, row, hint, oldMarker, notice, timer, mounted = false;
-  function clearHighlight() {
-    hint?.remove();
-    hint = null;
-    if (row) {
-      if (oldMarker === null) row.removeAttribute("data-rr-desk-drop");
-      else row.setAttribute("data-rr-desk-drop", oldMarker);
-    }
-    row = null;
+  let style, live, dragRow, feedback, painted, mounted = false;
+  const restore = (node, name, oldValue, ownValue) => {
+    if (node.getAttribute(name) !== ownValue) return;
+    if (oldValue === null) node.removeAttribute(name);
+    else node.setAttribute(name, oldValue);
+  };
+  function clearPaint() {
+    if (!painted) return;
+    const { row, accessory, marker, busy, state } = painted;
+    accessory.remove();
+    restore(row, "data-rr-desk-drop", marker, state);
+    if (state === "pending") restore(row, "aria-busy", busy, "true");
+    painted = null;
   }
-  function clearNotice() {
-    windowRef.clearTimeout(timer);
-    notice?.remove();
-    notice = null;
+  function icon(state) {
+    if (state === "pending") {
+      const spinner = documentRef.createElement("span");
+      spinner.className = "rr-desk-drop-spinner";
+      spinner.setAttribute("aria-hidden", "true");
+      return spinner;
+    }
+    const svg = documentRef.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "rr-desk-drop-icon");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.5");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    const path = documentRef.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", state === "ready" ? "M8 3v10M3 8h10" : state === "error" ? "M8 5v3M8 11h.01M8 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12" : "m3 8 3 3 7-7");
+    svg.appendChild(path);
+    return svg;
+  }
+  function paint() {
+    clearPaint();
+    const model = dragRow ? { row: dragRow, state: "ready" } : feedback;
+    if (!mounted || !model?.row?.isConnected) return;
+    const { row } = model, state = model.running ? "pending" : model.state;
+    const accessory = documentRef.createElement("span");
+    accessory.className = "rr-desk-drop-accessory";
+    painted = { row, accessory, marker: row.getAttribute("data-rr-desk-drop"), busy: row.getAttribute("aria-busy"), state };
+    row.setAttribute("data-rr-desk-drop", state);
+    if (state === "pending") row.setAttribute("aria-busy", "true");
+    const status = documentRef.createElement("span");
+    status.appendChild(icon(state));
+    if (model.message) status.title = model.message;
+    if (state === "error") {
+      status.className = "rr-desk-drop-error";
+      status.tabIndex = 0;
+      status.setAttribute("role", "img");
+      status.setAttribute("aria-label", model.message);
+    }
+    accessory.appendChild(status);
+    if (!dragRow && model.undo && !model.running) {
+      const undo = documentRef.createElement("button");
+      undo.type = "button";
+      undo.className = "rr-desk-drop-undo";
+      undo.dataset.rrDeskDropAction = "undo";
+      undo.textContent = "Undo";
+      undo.title = "Undo last add to Desk";
+      undo.setAttribute("aria-label", undo.title);
+      undo.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (feedback !== model || model.running) return;
+        model.pause();
+        model.running = true;
+        paint();
+        live.textContent = "Removing Desk entry.";
+        try {
+          await model.undo();
+        } catch (error) {
+          if (mounted && feedback === model) onActionError?.(error, row);
+        } finally {
+          if (mounted && feedback === model) {
+            model.running = false;
+            paint();
+            model.arm();
+          }
+        }
+      });
+      accessory.appendChild(undo);
+    }
+    row.appendChild(accessory);
+  }
+  function clearHighlight() {
+    if (!dragRow) return;
+    dragRow = null;
+    paint();
+  }
+  function clearFeedback() {
+    feedback?.cleanup();
+    feedback = null;
+    if (live) live.textContent = "";
+    paint();
   }
   return {
     mount() {
@@ -278,80 +371,57 @@ function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       style.dataset.rrDeskDropStyle = "true";
       style.textContent = CSS;
       documentRef.head.appendChild(style);
+      live = documentRef.createElement("div");
+      live.className = "rr-desk-drop-live";
+      live.setAttribute("role", "status");
+      live.setAttribute("aria-live", "polite");
+      live.setAttribute("aria-atomic", "true");
+      documentRef.body.appendChild(live);
     },
     highlight(target) {
-      if (!mounted || row === target && hint?.isConnected) return;
-      clearHighlight();
-      row = target;
-      oldMarker = row.getAttribute("data-rr-desk-drop");
-      row.setAttribute("data-rr-desk-drop", "ready");
-      hint = documentRef.createElement("span");
-      hint.className = "rr-desk-drop-hint";
-      hint.textContent = "Add to Desk \xB7 keep original";
-      hint.setAttribute("aria-hidden", "true");
-      row.appendChild(hint);
+      if (!mounted || dragRow === target && painted?.accessory.isConnected) return;
+      dragRow = target;
+      paint();
     },
     clearHighlight,
-    activeRow: () => row,
-    clearNotice,
-    show(message, { kind = "success", actions = [], persistent = false } = {}) {
-      if (!mounted) return;
-      clearNotice();
-      notice = documentRef.createElement("div");
-      notice.className = "rr-desk-drop-notice";
-      notice.dataset.kind = kind;
-      notice.setAttribute("role", "status");
-      notice.setAttribute("aria-live", "polite");
-      const text = documentRef.createElement("div");
-      text.textContent = message;
-      notice.appendChild(text);
-      const buttons = documentRef.createElement("div");
-      buttons.className = "rr-desk-drop-notice__actions";
-      for (const action of [...actions, { id: "dismiss", label: "Dismiss", run: clearNotice }]) {
-        const button = documentRef.createElement("button");
-        button.type = "button";
-        button.textContent = action.label;
-        button.dataset.rrDeskDropAction = action.id;
-        button.addEventListener("click", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          button.disabled = true;
-          windowRef.clearTimeout(timer);
-          try {
-            await action.run();
-          } catch (error) {
-            onActionError?.(error);
-          } finally {
-            if (button.isConnected) button.disabled = false;
-          }
-        });
-        buttons.appendChild(button);
-      }
-      notice.appendChild(buttons);
-      documentRef.body.appendChild(notice);
-      if (!persistent) {
-        const current = notice;
-        const arm = () => {
-          windowRef.clearTimeout(timer);
-          timer = windowRef.setTimeout(() => {
-            if (notice === current) clearNotice();
-          }, 12e3);
-        };
-        notice.addEventListener("mouseenter", () => windowRef.clearTimeout(timer));
-        notice.addEventListener("mouseleave", arm);
-        notice.addEventListener("focusin", () => windowRef.clearTimeout(timer));
-        notice.addEventListener("focusout", (event) => {
-          if (!notice?.contains(event.relatedTarget)) arm();
-        });
-        arm();
-      }
+    activeRow: () => dragRow,
+    clearFeedback,
+    show(message, { target, state = "added", undo, persistent = false } = {}) {
+      if (!mounted || !target?.isConnected) return;
+      clearFeedback();
+      let timer;
+      const current = { row: target, state, message, undo };
+      current.pause = () => windowRef.clearTimeout(timer);
+      current.arm = () => {
+        current.pause();
+        if (persistent || current.running || target.matches(":hover") || target.contains(documentRef.activeElement)) return;
+        timer = windowRef.setTimeout(() => {
+          if (feedback === current) clearFeedback();
+        }, undo ? 8e3 : 1800);
+      };
+      const focusOut = (event) => {
+        if (!target.contains(event.relatedTarget)) current.arm();
+      };
+      const listeners = [["mouseenter", current.pause], ["mouseleave", current.arm], ["focusin", current.pause], ["focusout", focusOut]];
+      current.cleanup = () => {
+        current.pause();
+        for (const [type, listener] of listeners) target.removeEventListener(type, listener);
+      };
+      for (const [type, listener] of listeners) target.addEventListener(type, listener);
+      feedback = current;
+      live.textContent = message;
+      paint();
+      current.arm();
     },
     dispose() {
       mounted = false;
-      clearHighlight();
-      clearNotice();
+      dragRow = null;
+      clearFeedback();
+      clearPaint();
       style?.remove();
+      live?.remove();
       style = null;
+      live = null;
     }
   };
 }
@@ -362,11 +432,15 @@ var AMBIGUOUS = ".rm-reference-container,.rm-reference-item,.roam-query,.roam-qu
 function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, getAPI = () => windowRef.roamAlphaAPI }) {
   const capture = createDeskCapture({ getAPI });
   const controller = new AbortController();
-  let loaded = false, stopped = false, session = null, context;
+  let loaded = false, stopped = false, session = null, context, feedbackVersion = 0;
   const ui = createDeskDropUI({ documentRef, windowRef, onActionError: showError });
-  function showError(error) {
+  function showError(error, target = documentRef.querySelector(DESK_SELECTOR)) {
     if (!loaded || error?.code === "ABORTED") return;
-    ui.show(error instanceof DeskDropError ? error.message : "Could not complete the operation. Check Desk; Desk Drop has not moved the original block.", { kind: "error", persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : "Could not complete the operation. Check Desk; Desk Drop has not moved the original block.", { target, state: "error", persistent: true });
+  }
+  function clearFeedback() {
+    feedbackVersion++;
+    ui.clearFeedback();
   }
   function resetDrag() {
     session = null;
@@ -393,6 +467,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     if (event.defaultPrevented || hasModifier(event)) return;
     const bullet = event.target?.closest?.(".rm-bullet");
     if (!bullet || bullet.closest(AMBIGUOUS) || !bullet.closest(".roam-article,.rm-sidebar-outline,.rm-sidebar-window")) return;
+    clearFeedback();
     try {
       session = {
         origin: capture.getContext(),
@@ -426,38 +501,36 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     if (!target || !source || event.defaultPrevented || hasModifier(event) || !hasRoamPayload(event.dataTransfer) || !transferEffect(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
+    const version = ++feedbackVersion;
     try {
       if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "The graph or user changed during the drag. Start a new drag.");
       const uids2 = readDropPayload(event.dataTransfer, source.origin, source.sourceUid);
-      ui.show("Adding to Desk...", { persistent: true });
+      ui.show("Adding to Desk.", { target, state: "pending", persistent: true });
       const result = await capture.capture({ uids: uids2, origin: source.origin, signal: controller.signal });
-      if (!loaded) return;
-      const actions = [{ id: "view", label: "View", run: () => {
-        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "Return to the original graph to view Desk.");
-        const row = documentRef.querySelector(DESK_SELECTOR);
-        if (!row) throw new DeskDropError("DESK_NOT_VISIBLE", "The native Desk entry was not found. Open Desk from the left sidebar.");
-        row.click();
-      } }];
-      if (result.receipt) actions.push({ id: "undo", label: "Undo", run: async () => {
+      if (!loaded || version !== feedbackVersion) return;
+      const undo = result.receipt ? async () => {
         await capture.undo(result.receipt, { signal: controller.signal });
-        if (loaded) ui.show("Removed this Desk entry. Original block kept.");
-      } });
-      ui.show(result.status === "existing" ? "Already on Desk. No duplicate added." : "Added to Desk. Original kept in place.", { actions });
+        if (loaded && version === feedbackVersion) ui.show("Removed this Desk entry. Original block kept.", { target, state: "removed" });
+      } : void 0;
+      ui.show(result.status === "existing" ? "Already on Desk. No duplicate added." : "Added to Desk. Original kept in place.", { target, state: result.status === "existing" ? "existing" : "added", undo });
     } catch (error) {
-      showError(error);
+      if (version === feedbackVersion) showError(error, target);
     }
   }
   function onKeyDown(event) {
-    if (event.key === "Escape") resetDrag();
+    if (event.key === "Escape") {
+      resetDrag();
+      clearFeedback();
+    }
   }
   function onHashChange() {
     resetDrag();
     try {
       const next = capture.getContext();
-      if (!sameContext(context, next)) ui.clearNotice();
+      if (!sameContext(context, next)) clearFeedback();
       context = next;
     } catch {
-      ui.clearNotice();
+      clearFeedback();
     }
   }
   const windowListeners = [["dragstart", onDragStart], ["dragend", resetDrag], ["blur", resetDrag], ["keydown", onKeyDown], ["hashchange", onHashChange]];
