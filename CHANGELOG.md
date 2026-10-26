@@ -1,12 +1,13 @@
 # Changelog
 
-## 0.1.3 - Copy feedback and background-only draft update
+## 0.1.3 - Copy feedback and background-only target
 
 - Prefer native `copy` feedback for ordinary accepted drags instead of the macOS link/alias cursor. The data operation remains a native embed, not a source-text copy or move.
 - Respect source permissions: retain `link` only when copying is unavailable, reject move-only drags, and leave other targets and modifier gestures unchanged.
 - Remove the target's inset frame. Keep the small plus and a 100ms background-only transition, disabled for reduced motion.
 - Scope active Desk paint strongly enough to survive important sidebar theme hover rules without changing other navigation rows.
 - Add regression coverage for cursor permissions, unchanged native gestures, background-only decoration, and theme precedence.
+- Add a privacy-redacted, author-recorded desktop GIF and a reduced-motion static fallback to the README. Prepare the existing Depot submission for formal maintainer review without changing runtime JavaScript.
 
 ## 0.1.2 - Quiet interaction draft update
 
@@ -33,4 +34,4 @@
 - Leave modifier-key drags and drops outside Desk to the existing handlers.
 - Clean up listeners and transient UI on unload.
 
-Validation covers automated tests and a local in-memory browser fixture. Live test-graph writes, native Desk rendering, desktop-client behavior, and integration with installed drag extensions remain pending.
+Validation includes automated tests, an in-memory browser fixture, and an author-recorded demonstration of the basic desktop drop/card path. Structured live-graph source/Undo checks, cross-client and failure-mode coverage, and coexistence with installed drag extensions remain follow-up work.

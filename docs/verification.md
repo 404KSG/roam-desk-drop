@@ -1,11 +1,13 @@
-# 0.1.3 cursor and background verification
+# 0.1.3 verification and submission evidence
 
-Date: October 26, 2026. Validated locally for the existing [Depot Draft PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511). No production installation or live-graph write test is included.
+Date: October 26, 2026. Prepared for formal maintainer review in [Depot PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511), as requested by the author. Automated write tests use the in-memory fixture; a separately supplied author-recorded desktop demonstration adds observational evidence for the basic live interaction.
 
 ## Completed checks
 
 | Check | Result | Evidence |
 |---|---|---|
+| Author-recorded desktop demonstration | A right-sidebar block is dropped onto Desk; the count changes from 4 to 5, the new card appears, and its native viewer opens | `assets/desk-drop-demo.gif`; not a full source-identity or failure-mode audit |
+| Public GIF validation | 1280 x 686, 157 frames, 10.47s, 15fps, looping, 2,541,922 bytes; sRGB, no audio or source metadata | Local `artifacts/demo-publication-check.json`; all 157 frames checked by local OCR plus manual key-frame review |
 | Node automated tests | 38 passing | `npm test`: capture, source preservation, deduplication, Undo guards, context changes, cancellation, ambiguous writes, payload validation, and English-copy checks |
 | Browser integration: source | 21 passing | Local `artifacts/cursor-browser-tests.json` |
 | Browser integration: bundle | The same 21 checks passing in a focused document | Bundle results in the same report |
@@ -40,18 +42,20 @@ The 0.1.2 mouse test exposed a focused-button removal that triggered blur and re
 
 ## Scope and evidence
 
-The build reused the existing esbuild 0.28.1 installation; no dependencies were installed. Browser create/delete operations affect an isolated localhost in-memory SDK only. No live-graph writes, production installation, or Marketplace release were performed for this revision. Earlier read-only Roam API and metadata inspection remains in local `artifacts/read-only-compatibility.json`.
+The build reused esbuild 0.28.1; video conversion used the existing FFmpeg installation. No dependencies were installed. Agent-run browser create/delete operations affect an isolated localhost in-memory SDK only. The agent did not install the extension or execute a write test in a live graph. Earlier read-only Roam API and metadata inspection remains in local `artifacts/read-only-compatibility.json`.
 
-`artifacts/` is excluded from Git. Images in `assets/` contain only sandbox data. The user-provided diagnostic screenshot is not included in the repository. The four-state preview uses actual sandbox screenshot crops, not a claim of live Roam or OS-cursor rendering.
+The author supplied the desktop recording and explicitly requested its publication. It visibly demonstrates the normal drop and card-opening path, but does not establish UID-level source preservation, live Undo safety, cross-client compatibility, or failure recovery. Runtime JavaScript is unchanged by the media/documentation update.
 
-## Remaining release gates
+`artifacts/` is excluded from Git. `assets/desk-drop-demo.gif` and its static fallback are cropped, privacy-redacted derivatives of the author recording. System chrome, graph identifiers, sidebar context, and unrelated note content are omitted or covered. Existing sandbox images remain labeled as sandbox evidence. The raw video and earlier diagnostic screenshot are not published.
 
-- Confirm cursor appearance and target tint in the actual Roam Electron/web client and installed theme after an authorized test installation.
+## Remaining verification work
+
+- Extend the observed desktop cursor/tint behavior to the supported Roam web/desktop clients and themes; one recording is not a compatibility matrix.
 - Compare plugin writes with native Add to Desk in a separate, authorized test graph, including rendering and native removal.
 - Test coexistence with the installed Drag References extension; existing tests cover modifier pass-through, not full coexistence.
 - Test live read-only graphs, interrupted synchronization, and concurrent devices.
 
-Keep the Depot PR in Draft. A source push or PR preview is not a Marketplace release.
+The author requested formal review rather than continuing in Draft. The gaps above remain open and are not marked as passed. A source push or a Ready-for-review PR is not a Marketplace release; listing requires the upstream maintainer's merge. A distribution license has not yet been declared and has not been selected automatically.
 
 ## Safety limits
 

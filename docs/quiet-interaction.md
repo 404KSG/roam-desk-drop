@@ -2,7 +2,7 @@
 
 ## Brief
 
-Reduce English copy during dragging, use a restrained Linear-inspired interaction, and remove bottom-right notifications. Preserve native Desk behavior and source-block safety. This is a draft prototype revision, not a production installation or a Marketplace release.
+Reduce English copy during dragging, use a restrained Linear-inspired interaction, and remove bottom-right notifications. Preserve native Desk behavior and source-block safety. The extension is submitted for Roam Depot maintainer review. Submission is separate from production installation and Marketplace availability.
 
 ## First-party references
 
@@ -59,4 +59,4 @@ Constructed DataTransfer objects do not accept native effect assignments in the 
 
 ## Validation boundary
 
-Use real browser events and the compiled bundle against the in-memory fixture. Verify row geometry, native navigation, inline Undo, errors, pending writes, queued operations, graph switches, cleanup, compact and dark styles, and reduced motion. Live native Desk acceptance and coexistence with installed extensions remain separate release gates.
+Use real browser events and the compiled bundle against the in-memory fixture. Verify row geometry, native navigation, inline Undo, errors, pending writes, queued operations, graph switches, cleanup, compact and dark styles, and reduced motion. The author-recorded desktop demonstration supplies observational evidence for the basic drop and native-card path. Structured live-graph acceptance and coexistence with installed extensions remain separate verification work.

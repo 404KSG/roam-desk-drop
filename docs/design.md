@@ -22,7 +22,7 @@ Start with a failing test, implement that behavior, and add safety cases increme
 
 ## Out of scope
 
-Multiple top-level blocks; web-page, file, or cross-window drops; cross-graph capture; automatic sidebar expansion; mobile touch gestures; automatic classification; AI; production installation; and release. Linked-reference, query, and embed surfaces are not handled in the first version because their source identity needs separate validation.
+Multiple top-level blocks; web-page, file, or cross-window drops; cross-graph capture; automatic sidebar expansion; mobile touch gestures; automatic classification; AI; automatic production installation; and automatic Marketplace release. Linked-reference, query, and embed surfaces are not handled in the first version because their source identity needs separate validation.
 
 ## Compatibility basis
 

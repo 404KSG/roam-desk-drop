@@ -2,7 +2,14 @@
 
 Drag a block onto the existing **Desk** item in Roam's left sidebar to add a native embed. The original block stays in place, with its content and children intact.
 
-> **Draft prototype, not a Roam Depot release.** Local sandbox tests pass, but live test-graph writes, native Desk rendering, Electron behavior, and coexistence with installed drag extensions still need validation. The extension, documentation, tests, and demo now use English throughout.
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png">
+  <img src="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo.gif" alt="A block is dragged from Roam's right sidebar onto Desk, appears as a new card, and opens in the native viewer." width="1280">
+</picture>
+
+Author-recorded Roam desktop demonstration. Graph identifiers and unrelated notes are obscured; the recording shows the drop, the new Desk card, and its native viewer. [Static preview](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png).
+
+> **Roam Depot submission:** [PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511). Maintainer approval and Marketplace listing are pending. See [verification notes](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) for tested behavior and remaining coverage gaps.
 
 ## How it works
 
@@ -30,7 +37,7 @@ Repeated drops do not add duplicates or reorder existing entries. Entries remain
 
 These states come from the local test harness, **not a live Roam graph**. The [full sandbox screenshot](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.3) shows the unchanged source block and the native embed string received by the simulated Desk.
 
-## Prototype scope
+## Scope
 
 - One top-level block at a time, including its existing children.
 - Ordinary blocks in the main outline or right-sidebar outline, within the same window and graph.
@@ -47,14 +54,15 @@ These states come from the local test harness, **not a live Roam graph**. The [f
 - Queueing and deduplication are local to one plugin instance. They are not distributed transactions or atomic conditional deletes.
 - Unloading removes listeners, highlights, inline feedback, the hidden live region, and injected styles. It cannot forcibly cancel an operation already submitted to Roam.
 - No AI service, additional API key, analytics, or extra network requests are used. Graph changes still use Roam's own synchronization and permissions. A personal Desk is not a separate privacy boundary.
-- Direct Desk self-embedding and blocks already inside a Desk page are rejected. This prototype does not guarantee global cycle detection for complex dynamic renderers or cross-block embeds.
+- Direct Desk self-embedding and blocks already inside a Desk page are rejected. Global cycle detection for complex dynamic renderers or cross-block embeds is not guaranteed.
 
 ## Validation
 
 - **38 automated tests** pass for capture, source preservation, deduplication, undo guards, graph changes, cancellation, rebinding, ambiguous write outcomes, payload validation, and untranslated-copy detection.
 - **21 browser integration checks** pass against both the source entry point and the compiled bundle in a focused in-memory fixture. They include geometry, local feedback, pending writes, focused Undo, stale results, errors, attribute restoration, compact/dark sidebars, allowed cursor operations, and high-specificity sidebar themes.
 - A browser-driven pointer drag produced trusted events with `dropEffect: copy` at drop and drag end. The fixture received an embed, and a real mouse click on inline Undo removed only the new entry. The target has no shadow, and reduced-motion preferences disable the background transition.
-- Read-only inspection of a live Roam client confirmed the required methods and metadata shapes. **No live-graph create/delete test has been performed.**
+- The author's desktop recording shows a right-sidebar block being added, the Desk count changing from 4 to 5, and the new card opening in the native viewer. This is observational evidence for the basic desktop path, not a complete compatibility or failure-mode test.
+- Read-only inspection of a live Roam client confirmed the required methods and metadata shapes. **Agent-run write tests remain limited to the in-memory fixture.**
 
 See [verification details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) for the remaining checks. Event-level modifier tests are not a substitute for testing alongside the actual Drag References extension.
 
@@ -88,13 +96,16 @@ npm run check
 
 The build script does not install dependencies automatically. The repository includes a prebuilt `extension.js`, so the Depot submission does not need a root `build.sh`.
 
-## Before marking the Depot PR ready
+## Compatibility follow-up
 
-- [ ] Load the module only in a separately authorized test graph with an initialized native Desk.
-- [ ] Compare a native Add to Desk operation with a plugin drop, including a block with children.
-- [ ] Verify live Desk rendering, source identity and hierarchy, native removal, and guarded Undo.
-- [ ] Test Roam web and desktop clients, read-only graphs, sync failures, and graph switching.
+The basic desktop path is demonstrated above. The following checks remain distinct from the submission for maintainer review:
+
+- [ ] Compare native Add to Desk with a plugin drop in a separately authorized test graph, including a block with children.
+- [ ] Verify source identity and hierarchy, native removal, and guarded Undo through live graph readback.
+- [ ] Complete Roam web/desktop, read-only, sync-failure, graph-switching, and concurrent-device checks.
 - [ ] Test alongside the installed Drag References extension.
+
+Do not treat the demonstration or a passing build as proof that all these cases have been tested.
 
 `extension.js` is a Roam Depot ES module. Do not paste it into `roam/css` or treat it as a plain `roam/js` snippet.
 
