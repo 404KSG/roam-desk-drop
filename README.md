@@ -7,7 +7,7 @@ Drag a block onto the existing **Desk** item in Roam's left sidebar to add a nat
 ## How it works
 
 1. Drag a block's bullet without holding a modifier key.
-2. Hover over the Desk row. Its original label stays visible; a faint background and small plus confirm the drop target.
+2. Hover over the Desk row. Its original label stays visible; only a faint background and small plus confirm the drop target, without a frame or shadow.
 3. Drop to add this native-format entry at the top of your bound Desk page:
 
 ```text
@@ -20,13 +20,15 @@ Progress and failures also stay at Desk. A warning retains the full error in its
 
 See the [quiet interaction design](https://github.com/404KSG/roam-desk-drop/blob/main/docs/quiet-interaction.md) for the Linear references, visual contract, and safety boundaries.
 
-The entry is an embed, not a separate copy. Repeated drops do not add duplicates or reorder existing entries. Entries remain native Roam content after the plugin is uninstalled.
+Ordinary drags prefer the browser's non-moving `copy` feedback rather than its `link`/alias cursor. This changes cursor feedback, not the capture operation: **the entry is still a live embed, not a copy of the source text**. Source permissions remain authoritative; link-only drags retain link feedback, and move-only drags are not handled. The OS controls the exact cursor artwork.
+
+Repeated drops do not add duplicates or reorder existing entries. Entries remain native Roam content after the plugin is uninstalled.
 
 ## Sandbox demonstration
 
-![Desk Drop: idle, drag target, added, and error states](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-interaction.png?v=0.1.2)
+![Desk Drop: idle, drag target, added, and error states](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-interaction.png?v=0.1.3)
 
-These states come from the local test harness, **not a live Roam graph**. The [full sandbox screenshot](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.2) shows the unchanged source block and the native embed string received by the simulated Desk.
+These states come from the local test harness, **not a live Roam graph**. The [full sandbox screenshot](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.3) shows the unchanged source block and the native embed string received by the simulated Desk.
 
 ## Prototype scope
 
@@ -50,8 +52,8 @@ These states come from the local test harness, **not a live Roam graph**. The [f
 ## Validation
 
 - **38 automated tests** pass for capture, source preservation, deduplication, undo guards, graph changes, cancellation, rebinding, ambiguous write outcomes, payload validation, and untranslated-copy detection.
-- **18 browser integration checks** pass against both the source entry point and the compiled bundle in a focused in-memory fixture. They include geometry, local feedback, pending writes, focused Undo, stale results, errors, attribute restoration, and compact/dark sidebars.
-- A browser-driven pointer drag produced trusted `dragstart` and `drop` events; the fixture received an embed, and a real mouse click on inline Undo removed only the new entry. Reduced-motion and compact dark-sidebar presentation checks also pass.
+- **21 browser integration checks** pass against both the source entry point and the compiled bundle in a focused in-memory fixture. They include geometry, local feedback, pending writes, focused Undo, stale results, errors, attribute restoration, compact/dark sidebars, allowed cursor operations, and high-specificity sidebar themes.
+- A browser-driven pointer drag produced trusted events with `dropEffect: copy` at drop and drag end. The fixture received an embed, and a real mouse click on inline Undo removed only the new entry. The target has no shadow, and reduced-motion preferences disable the background transition.
 - Read-only inspection of a live Roam client confirmed the required methods and metadata shapes. **No live-graph create/delete test has been performed.**
 
 See [verification details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) for the remaining checks. Event-level modifier tests are not a substitute for testing alongside the actual Drag References extension.

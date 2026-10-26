@@ -1,10 +1,12 @@
 const ROW = '.roam-app > .roam-sidebar-container .rm-left-sidebar__desk[data-rr-desk-drop]';
+// Outrank important sidebar hover paint only while this exact Desk row accepts a drop.
+const READY_ROW = '.roam-body .roam-app > .roam-sidebar-container .roam-sidebar-content div.log-button.rm-left-sidebar__desk[data-rr-desk-drop="ready"]';
 const CSS = `
 ${ROW} { position:relative; }
-${ROW}[data-rr-desk-drop="ready"] {
+${READY_ROW} {
   background-color:color-mix(in srgb,currentColor 7%,transparent) !important;
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 16%,transparent) !important;
   border-radius:6px;
+  transition:background-color 100ms ease;
 }
 .rr-desk-drop-accessory { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:6px; height:20px; color:inherit; pointer-events:none; }
 .rr-desk-drop-icon { display:block; width:14px; height:14px; flex:none; opacity:.8; }
@@ -16,7 +18,7 @@ ${ROW} .rr-desk-drop-undo:hover { opacity:1; text-decoration:underline; text-und
 .rr-desk-drop-spinner { display:block; box-sizing:border-box; width:13px; height:13px; border:1.5px solid currentColor; border-right-color:transparent; border-radius:50%; opacity:.65; animation:rr-desk-drop-spin 800ms linear infinite; }
 .rr-desk-drop-live { position:absolute !important; top:0 !important; left:0 !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip-path:inset(50%) !important; white-space:nowrap !important; border:0 !important; }
 @keyframes rr-desk-drop-spin { to { transform:rotate(360deg); } }
-@media (prefers-reduced-motion:reduce) { .rr-desk-drop-spinner { animation:none; } .rr-desk-drop-undo { transition:none; } }
+@media (prefers-reduced-motion:reduce) { ${READY_ROW} { transition:none; } .rr-desk-drop-spinner { animation:none; } .rr-desk-drop-undo { transition:none; } }
 `;
 
 export function createDeskDropUI({ documentRef, windowRef, onActionError }) {

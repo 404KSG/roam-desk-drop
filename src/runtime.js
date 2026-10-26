@@ -20,8 +20,10 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
   function resetDrag() { session = null; ui.clearHighlight(); }
   function transferEffect(transfer) {
     const allowed = transfer?.effectAllowed || 'uninitialized';
-    if (['all', 'uninitialized', 'link', 'copyLink', 'linkMove'].includes(allowed)) return 'link';
-    if (['copy', 'copyMove'].includes(allowed)) return 'copy';
+    // Prefer additive cursor feedback, not the macOS link/alias arrow. The
+    // capture engine still creates a live embed and never copies source text.
+    if (['all', 'uninitialized', 'copy', 'copyLink', 'copyMove'].includes(allowed)) return 'copy';
+    if (['link', 'linkMove'].includes(allowed)) return 'link';
     return null;
   }
   function currentSession() {

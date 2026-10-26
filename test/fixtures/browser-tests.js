@@ -27,11 +27,14 @@ function event(type, target, transfer, options = {}) {
   const e = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer, ...options });
   target.dispatchEvent(e); return e;
 }
-function begin(selector = '#bullet', options = {}) {
+function begin(selector = '#bullet', options = {}, effectAllowed = 'all') {
   const dt = new DataTransfer();
-  // Constructed DataTransfer objects default to none; model native block drags that allow all.
-  // Real pointer drags are checked separately without relaxing production input checks.
-  Object.defineProperty(dt, 'effectAllowed', { value: 'all' });
+  // Constructed DataTransfer objects keep both native effect setters at none.
+  // Model source permissions and record requested feedback at this browser boundary.
+  // Real pointer drags separately verify the browser's actual dropEffect.
+  Object.defineProperty(dt, 'effectAllowed', { value: effectAllowed });
+  let requestedEffect = 'none';
+  Object.defineProperty(dt, 'dropEffect', { get: () => requestedEffect, set: value => { requestedEffect = value; } });
   event('dragstart', document.querySelector(selector), dt, options);
   return dt;
 }
@@ -87,18 +90,20 @@ async function runTests() {
     assert(!document.querySelector('[data-rr-desk-drop-action="undo"]'), 'An existing entry must not receive an Undo action');
   });
   await check('Native drops outside Desk are not intercepted', async () => {
-    const dt = begin(); const target = document.querySelector('#ordinary-target');
+    const dt = begin(); const target = document.querySelector('#ordinary-target'); dt.dropEffect = 'move';
     const over = event('dragover', target, dt), drop = event('drop', target, dt);
+    assert(dt.dropEffect === 'move', 'Native cursor feedback outside Desk changed');
     await new Promise(requestAnimationFrame);
     assert(!over.defaultPrevented && !drop.defaultPrevented, 'Native drop was intercepted');
     assert(fake.desk()[':block/children'].length === 0, 'Unexpected write');
   });
   await check('All four modifier keys are left to existing handlers', async () => {
     for (const key of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
-      const dt = begin('#bullet', { [key]: true });
+      const dt = begin('#bullet', { [key]: true }); dt.dropEffect = 'move';
       const over = event('dragover', document.querySelector('#desk'), dt, { [key]: true });
       const drop = event('drop', document.querySelector('#desk'), dt, { [key]: true });
       assert(!over.defaultPrevented && !drop.defaultPrevented, 'Modifier drag was intercepted: ' + key);
+      assert(dt.dropEffect === 'move', 'Modifier cursor feedback changed: ' + key);
     }
     await new Promise(requestAnimationFrame);
     assert(fake.desk()[':block/children'].length === 0, 'Modifier drag caused a write');
@@ -238,6 +243,60 @@ async function runTests() {
       const label = document.querySelector('#desk-label').getBoundingClientRect(), accessory = row.querySelector('.rr-desk-drop-accessory').getBoundingClientRect();
       assert(label.right + 8 < accessory.left, 'Compact feedback overlaps the label');
     } finally { if (oldStyle === null) sidebar.removeAttribute('style'); else sidebar.setAttribute('style', oldStyle); }
+  });
+  await check('Desk prefers additive cursor feedback without changing embeds or permitted operations', async () => {
+    for (const [allowed, expected] of [
+      ['all', 'copy'], ['uninitialized', 'copy'], ['copy', 'copy'], ['copyLink', 'copy'], ['copyMove', 'copy'],
+      ['link', 'link'], ['linkMove', 'link'], ['move', null], ['none', null], ['unknown', null],
+    ]) {
+      reset();
+      const row = document.querySelector('#desk'), before = structuredClone(fake.records.get('block0001'));
+      const dt = begin('#bullet', {}, allowed);
+      const enter = event('dragenter', row, dt), over = event('dragover', row, dt);
+      assert(enter.defaultPrevented === !!expected && over.defaultPrevented === !!expected, 'Unexpected accepted operation: ' + allowed);
+      assert(dt.dropEffect === (expected || 'none'), `Wrong cursor feedback for ${allowed}: ${dt.dropEffect}`);
+      const drop = event('drop', row, dt);
+      assert(drop.defaultPrevented === !!expected, 'Drop acceptance changed: ' + allowed);
+      if (expected) {
+        await waitFor(() => row.dataset.rrDeskDrop === 'added');
+        assert(fake.desk()[':block/children'].length === 1 && fake.desk()[':block/children'][0][':block/string'] === '{{embed-path: ((block0001)) closed}}', 'Cursor feedback changed embed content');
+      } else {
+        await new Promise(requestAnimationFrame);
+        assert(fake.desk()[':block/children'].length === 0 && !row.hasAttribute('data-rr-desk-drop'), 'Unsupported operation was handled');
+      }
+      assert(JSON.stringify(fake.records.get('block0001')) === JSON.stringify(before), 'Cursor feedback changed the source');
+    }
+  });
+  await check('The active Desk row uses a background and plus without an inset frame', async () => {
+    const row = document.querySelector('#desk'); event('dragover', row, begin());
+    const css = getComputedStyle(row);
+    assert(css.boxShadow === 'none', 'The active target still has an inset frame or shadow');
+    assert(row.textContent.trim() === 'Desk' && row.querySelector('.rr-desk-drop-accessory svg'), 'The minimal drop affordance changed');
+    const reduced = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    assert(reduced ? css.transitionDuration === '0s' : css.transitionProperty === 'background-color' && css.transitionDuration === '0.1s', 'The background transition does not respect motion preferences');
+  });
+  await check('Desk tint survives a later important sidebar theme without recoloring other rows', async () => {
+    const row = document.querySelector('#desk'), other = row.nextElementSibling;
+    const theme = document.createElement('style');
+    // Match the public sidebar theme's important normal/hover specificity.
+    theme.textContent = `
+      .roam-body .roam-app .roam-sidebar-container .roam-sidebar-content :is(.log-button, .starred-pages-wrapper, .starred-pages .page, .sidebar-nav-item) { background:transparent !important; color:#69757f !important; box-shadow:none !important; transition:color 160ms ease, background-color 160ms ease; }
+      .roam-body .roam-app .roam-sidebar-container .roam-sidebar-content :is(.log-button, .starred-pages .page, .sidebar-nav-item):is(:hover, [data-fixture-hover]) { background:#f9f9f9 !important; color:#202b33 !important; }
+    `;
+    document.head.append(theme); row.setAttribute('data-fixture-hover', '');
+    await waitFor(() => [row, other].every(node => node.getAnimations().every(animation => animation.playState !== 'running')));
+    const idle = getComputedStyle(row).backgroundColor;
+    const otherPaint = [getComputedStyle(other).backgroundColor, getComputedStyle(other).color];
+    try {
+      event('dragover', row, begin());
+      try { await waitFor(() => getComputedStyle(row).backgroundColor !== idle); }
+      catch { throw new Error('The sidebar theme hid the Desk background feedback'); }
+      assert(getComputedStyle(row).boxShadow === 'none', 'Theme compatibility added a frame');
+      assert(JSON.stringify([getComputedStyle(other).backgroundColor, getComputedStyle(other).color]) === JSON.stringify(otherPaint), 'Other navigation rows changed');
+      window.dispatchEvent(new Event('dragend'));
+      await waitFor(() => getComputedStyle(row).backgroundColor === idle);
+      assert(!row.hasAttribute('data-rr-desk-drop'), 'Active Desk styling was not removed');
+    } finally { row.removeAttribute('data-fixture-hover'); theme.remove(); }
   });
   window.__deskDropTestResults = report;
   return report;

@@ -29,10 +29,10 @@ Error      [native icon] Desk           warning
 ```
 
 - Preserve native icon, label, foreground, font, row height, and adjacent navigation geometry. Do not swap the word Desk for instructions.
-- Use a 6px radius only for the active drop target, a 7% foreground-derived fill, and a 16% foreground-derived inset hairline. These inherit the host theme rather than adding a white overlay or a saturated accent.
+- Use a 6px radius and a 7% foreground-derived fill for the active drop target, without an inset frame or shadow. The narrowly scoped active-Desk selector outranks important sidebar hover paint so the tint remains visible; other rows keep their original styles.
 - Use 14px line icons with a 1.5px stroke. Use the native font for the 11px Undo action. This is a navigation detail, not an opportunity to introduce a second typeface or a new application theme.
 - The neutral reference palette is ink `#262626`, muted `#737373`, line `#ececee`, and surface `#f6f6f7`. Actual row colors come from the host. Warning uses `#a87936`, overridable through `--rr-desk-drop-warning`.
-- No large shadows, extra cards, global borders, label motion, or bottom-right panel. The only fade is a short Undo reveal. Reduced-motion preferences disable that transition and the spinner animation.
+- No shadows, extra cards, global borders, label motion, or bottom-right panel. The target background transitions in 100ms; leaving restores the host's normal paint and transition. Reduced-motion preferences disable this transition, the Undo reveal transition, and the spinner animation.
 
 ## Behavior and accessibility
 
@@ -43,6 +43,19 @@ Error      [native icon] Desk           warning
 - Escape dismisses feedback. It does not cancel an already submitted SDK write. A graph change, newer accepted operation, or unload prevents stale completions from restoring feedback.
 - Only the latest accepted drop owns the visible Undo. Its receipt is still validated by the unchanged capture engine.
 - No source updates, moves, clipboard changes, automatic navigation, analytics, new dependencies, or production-graph writes are introduced by this revision.
+
+## Native cursor feedback
+
+The reported black curved arrow matches macOS link/alias drag feedback. The previous runtime preferred `dropEffect: link` even when the source permitted an additive copy operation. This is platform cursor feedback, not a Desk-row SVG or a block-reordering marker.
+
+Prefer `copy` for sources permitting copy, including ordinary uninitialized/all drags. Retain `link` only for link-capable sources that do not permit copy. Reject move-only/none/unknown operations; never request `move` merely to change the cursor. Keep other drop targets and modifier gestures unchanged.
+
+This preference does not copy the source text. The unchanged capture engine still creates only `{{embed-path: ((uid)) closed}}`. The browser and OS choose the cursor artwork; the extension does not hide the pointer or globally suppress native drag indicators.
+
+- [MDN: DataTransfer.dropEffect](https://developer.mozilla.org/en-US/docs/Web/API/DataTransfer/dropEffect)
+- [Apple: Pointing devices](https://developer.apple.com/design/human-interface-guidelines/pointing-devices)
+
+Constructed DataTransfer objects do not accept native effect assignments in the test browser. Synthetic integration tests therefore model source permissions and record requested feedback at that boundary; trusted pointer tests separately verify the browser's real drop and drag-end effects.
 
 ## Validation boundary
 

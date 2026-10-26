@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 - Copy feedback and background-only draft update
+
+- Prefer native `copy` feedback for ordinary accepted drags instead of the macOS link/alias cursor. The data operation remains a native embed, not a source-text copy or move.
+- Respect source permissions: retain `link` only when copying is unavailable, reject move-only drags, and leave other targets and modifier gestures unchanged.
+- Remove the target's inset frame. Keep the small plus and a 100ms background-only transition, disabled for reduced motion.
+- Scope active Desk paint strongly enough to survive important sidebar theme hover rules without changing other navigation rows.
+- Add regression coverage for cursor permissions, unchanged native gestures, background-only decoration, and theme precedence.
+
 ## 0.1.2 - Quiet interaction draft update
 
 - Remove the bottom-right notification panel and the full-row instructional overlay.
