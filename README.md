@@ -116,3 +116,9 @@ The Desk binding and embed format were inspected in Roam client `0.13.13-2e4c3c7
 - [Official developer graph](https://roamresearch.com/#/app/developer-documentation)
 - [Machine-readable documentation mirror](https://roamdocs.fyi/developer-documentation/llms-full.txt)
 - [Current client Desk implementation](https://roamresearch.com/js/compiled/main.js)
+
+## License
+
+[MIT](https://github.com/404KSG/roam-desk-drop/blob/main/LICENSE). Copyright (c) 2026 404KSG.
+
+Third-party products and media visible in the demonstrations remain subject to their respective owners' rights; this repository does not grant rights to that third-party material.

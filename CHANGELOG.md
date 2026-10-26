@@ -8,6 +8,7 @@
 - Scope active Desk paint strongly enough to survive important sidebar theme hover rules without changing other navigation rows.
 - Add regression coverage for cursor permissions, unchanged native gestures, background-only decoration, and theme precedence.
 - Add a privacy-redacted, author-recorded desktop GIF and a reduced-motion static fallback to the README. Prepare the existing Depot submission for formal maintainer review without changing runtime JavaScript.
+- Add the author-approved MIT license, package metadata, and README license notice. Third-party demonstration content retains its owners' rights.
 
 ## 0.1.2 - Quiet interaction draft update
 

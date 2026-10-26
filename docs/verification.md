@@ -55,7 +55,7 @@ The author supplied the desktop recording and explicitly requested its publicati
 - Test coexistence with the installed Drag References extension; existing tests cover modifier pass-through, not full coexistence.
 - Test live read-only graphs, interrupted synchronization, and concurrent devices.
 
-The author requested formal review rather than continuing in Draft. The gaps above remain open and are not marked as passed. A source push or a Ready-for-review PR is not a Marketplace release; listing requires the upstream maintainer's merge. A distribution license has not yet been declared and has not been selected automatically.
+The author requested formal review rather than continuing in Draft. The gaps above remain open and are not marked as passed. A source push or a Ready-for-review PR is not a Marketplace release; listing requires the upstream maintainer's merge. The author explicitly approved the MIT license. The standard license is included in `LICENSE`, and `package.json` declares `MIT`; runtime JavaScript is unchanged by this licensing update.
 
 ## Safety limits
 
