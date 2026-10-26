@@ -15,7 +15,7 @@ function createRoamDeskAdapter({ getAPI }) {
   function api() {
     const value = getAPI?.();
     if (!value?.data?.pull || !value?.data?.block?.create || !value?.user?.uid || !value?.util?.generateUID) {
-      throw new DeskDropError("UNSUPPORTED_API", "\u5F53\u524D Roam \u7248\u672C\u7F3A\u5C11\u9700\u8981\u7684\u516C\u5F00\u63A5\u53E3\u3002");
+      throw new DeskDropError("UNSUPPORTED_API", "This Roam version does not expose the required public APIs.");
     }
     return value;
   }
@@ -23,12 +23,12 @@ function createRoamDeskAdapter({ getAPI }) {
     const value = api();
     const context = { graphName: value.graph?.name, graphType: value.graph?.type, userUid: value.user.uid() };
     if (!context.graphName || !context.graphType || !context.userUid) {
-      throw new DeskDropError("NO_CONTEXT", "\u8BF7\u5728\u5DF2\u767B\u5F55\u7684 Roam \u56FE\u8C31\u4E2D\u4F7F\u7528\u3002");
+      throw new DeskDropError("NO_CONTEXT", "Sign in and open a Roam graph to use Desk Drop.");
     }
     return Object.freeze(context);
   }
   function assertContext(context) {
-    if (!sameContext(getContext(), context)) throw new DeskDropError("CONTEXT_CHANGED", "\u56FE\u8C31\u6216\u7528\u6237\u5DF2\u6539\u53D8\uFF0C\u64CD\u4F5C\u5DF2\u505C\u6B62\uFF1B\u5982\u521A\u677E\u624B\uFF0C\u8BF7\u56DE\u539F\u56FE\u8C31\u6838\u5BF9\u7ED3\u679C\u3002");
+    if (!sameContext(getContext(), context)) throw new DeskDropError("CONTEXT_CHANGED", "The graph or user changed. Operation stopped; check the original graph if you just dropped a block.");
   }
   async function readBlock(uid) {
     const entity = await api().data.pull(BLOCK, [":block/uid", uid]);
@@ -50,12 +50,12 @@ function createRoamDeskAdapter({ getAPI }) {
     assertContext(context);
     const uid = field(user, "user/desk-page");
     if (typeof uid !== "string" || !uid) {
-      throw new DeskDropError("DESK_UNBOUND", "\u8BF7\u5148\u6253\u5F00\u4E00\u6B21\u539F\u751F Desk\uFF0C\u518D\u5C1D\u8BD5\u62D6\u5165\u3002");
+      throw new DeskDropError("DESK_UNBOUND", "Open native Desk once before dropping a block.");
     }
     const page = await api().data.pull(DESK, [":block/uid", uid]);
     assertContext(context);
     if (field(page, "block/uid") !== uid || typeof field(page, "node/title") !== "string") {
-      throw new DeskDropError("DESK_MISSING", "Desk \u7ED1\u5B9A\u7684\u9875\u9762\u5DF2\u5931\u6548\uFF0C\u8BF7\u5148\u901A\u8FC7\u539F\u751F Desk \u6062\u590D\u3002");
+      throw new DeskDropError("DESK_MISSING", "The bound Desk page is missing or invalid. Recover it through native Desk first.");
     }
     return {
       uid,
@@ -68,12 +68,12 @@ function createRoamDeskAdapter({ getAPI }) {
     readBlock,
     resolveDesk,
     isDeskPage: async (uid) => {
-      if (typeof api().data.q !== "function") throw new DeskDropError("UNSUPPORTED_API", "\u5F53\u524D Roam \u7F3A\u5C11\u5B89\u5168\u6821\u9A8C\u6240\u9700\u7684\u67E5\u8BE2\u63A5\u53E3\u3002");
+      if (typeof api().data.q !== "function") throw new DeskDropError("UNSUPPORTED_API", "This Roam version lacks the query API required for safety checks.");
       return await api().data.q("[:find ?u . :in $ ?pageUid :where [?u :user/desk-page ?pageUid]]", uid) != null;
     },
     generateUID: () => api().util.generateUID(),
     deleteEntry: (uid) => {
-      if (typeof api().data.block.delete !== "function") throw new DeskDropError("UNSUPPORTED_API", "\u5F53\u524D Roam \u7F3A\u5C11\u5B89\u5168\u79FB\u9664\u5165\u53E3\u7684\u63A5\u53E3\u3002");
+      if (typeof api().data.block.delete !== "function") throw new DeskDropError("UNSUPPORTED_API", "This Roam version lacks the API required to remove an entry safely.");
       return api().data.block.delete({ block: { uid } });
     },
     createEntry: ({ deskUid, uid, string }) => api().data.block.create({
@@ -93,10 +93,10 @@ function createDeskCapture({ getAPI }) {
   const adapter = createRoamDeskAdapter({ getAPI });
   const pendingWrites = /* @__PURE__ */ new Map();
   const interrupted = (error) => ["ABORTED", "CONTEXT_CHANGED", "NO_CONTEXT"].includes(error?.code);
-  const unconfirmed = () => new DeskDropError("WRITE_UNCONFIRMED", "\u6DFB\u52A0\u7ED3\u679C\u5C1A\u672A\u786E\u8BA4\uFF0C\u5DF2\u6682\u505C\u540C\u4E00\u5757\u7684\u91CD\u8BD5\uFF1B\u8BF7\u5148\u67E5\u770B Desk\u3002");
+  const unconfirmed = () => new DeskDropError("WRITE_UNCONFIRMED", "Could not confirm the result. Further attempts for this block are paused; check Desk first.");
   let receipts = /* @__PURE__ */ new WeakMap(), tail = Promise.resolve(), disposed = false;
   function active(signal) {
-    if (disposed || signal?.aborted) throw new DeskDropError("ABORTED", "\u63D2\u4EF6\u5DF2\u505C\u6B62\uFF0C\u672C\u6B21\u64CD\u4F5C\u5DF2\u53D6\u6D88\u3002");
+    if (disposed || signal?.aborted) throw new DeskDropError("ABORTED", "Desk Drop has stopped; this operation will not continue.");
   }
   async function guarded(context, fn, signal) {
     active(signal);
@@ -119,18 +119,18 @@ function createDeskCapture({ getAPI }) {
     const run = (fn) => guarded(origin, fn, signal);
     active(signal);
     adapter.assertContext(origin);
-    if (!Array.isArray(uids2) || uids2.length !== 1) throw new DeskDropError("SINGLE_BLOCK_ONLY", "\u7B2C\u4E00\u7248\u53EA\u652F\u6301\u4E00\u4E2A\u9876\u5C42 Block\uFF0C\u8BF7\u9010\u5757\u62D6\u5165\u3002");
+    if (!Array.isArray(uids2) || uids2.length !== 1) throw new DeskDropError("SINGLE_BLOCK_ONLY", "This version accepts one top-level block at a time. Drag blocks individually.");
     const sourceUid = uids2[0];
-    if (!isSafeUid(sourceUid)) throw new DeskDropError("INVALID_UID", "\u65E0\u6CD5\u5B89\u5168\u8BC6\u522B\u8FD9\u4E2A Block \u7684 UID\u3002");
+    if (!isSafeUid(sourceUid)) throw new DeskDropError("INVALID_UID", "Could not safely identify the block UID.");
     const desk = await run(() => adapter.resolveDesk(origin));
-    if (sourceUid === desk.uid) throw new DeskDropError("DESK_SOURCE", "\u4E0D\u80FD\u628A Desk \u518D\u6B21\u653E\u8FDB\u5B83\u81EA\u5DF1\u3002");
+    if (sourceUid === desk.uid) throw new DeskDropError("DESK_SOURCE", "Desk cannot be added to itself.");
     const source = await run(() => adapter.readBlock(sourceUid));
-    if (!source || source.uid !== sourceUid) throw new DeskDropError("SOURCE_MISSING", "\u6E90 Block \u5DF2\u4E0D\u5B58\u5728\uFF0C\u672A\u52A0\u5165 Desk\u3002");
-    if (typeof source.title === "string" || typeof source.string !== "string") throw new DeskDropError("NOT_A_BLOCK", "\u7B2C\u4E00\u7248\u53EA\u63A5\u53D7 Block\uFF0C\u4E0D\u63A5\u53D7\u6574\u4E2A\u9875\u9762\u3002");
-    if (!source.pageUid) throw new DeskDropError("SOURCE_METADATA", "\u65E0\u6CD5\u786E\u8BA4\u6E90 Block \u6240\u5C5E\u9875\u9762\uFF0C\u672A\u52A0\u5165 Desk\u3002");
-    if (await run(() => adapter.isDeskPage(source.pageUid))) throw new DeskDropError("DESK_SOURCE", "Desk \u5185\u90E8\u7684\u7B14\u8BB0\u4E0D\u9700\u8981\u518D\u6B21\u52A0\u5165 Desk\u3002");
+    if (!source || source.uid !== sourceUid) throw new DeskDropError("SOURCE_MISSING", "The source block no longer exists. Nothing was added to Desk.");
+    if (typeof source.title === "string" || typeof source.string !== "string") throw new DeskDropError("NOT_A_BLOCK", "This version accepts blocks, not whole pages.");
+    if (!source.pageUid) throw new DeskDropError("SOURCE_METADATA", "Could not identify the source page. Nothing was added to Desk.");
+    if (await run(() => adapter.isDeskPage(source.pageUid))) throw new DeskDropError("DESK_SOURCE", "Notes already inside a Desk page cannot be added again.");
     const currentDesk = await run(() => adapter.resolveDesk(origin));
-    if (currentDesk.uid !== desk.uid) throw new DeskDropError("DESK_CHANGED", "Desk \u7ED1\u5B9A\u521A\u521A\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u62D6\u5165\u3002");
+    if (currentDesk.uid !== desk.uid) throw new DeskDropError("DESK_CHANGED", "The Desk binding changed. Please drag the block again.");
     const key = JSON.stringify([origin.graphName, origin.graphType, origin.userUid, desk.uid, sourceUid]);
     const existing = currentDesk.entries.find((entry2) => embeddedBlockUid(entry2.string) === sourceUid);
     if (existing) {
@@ -147,7 +147,7 @@ function createDeskCapture({ getAPI }) {
       return { status: "existing", entryUid: pending, sourceUid, deskUid: desk.uid, context: origin };
     }
     const uid = adapter.generateUID();
-    if (!isSafeUid(uid)) throw new DeskDropError("UNSUPPORTED_API", "Roam \u8FD4\u56DE\u4E86\u65E0\u6CD5\u5B89\u5168\u4F7F\u7528\u7684\u65B0 UID\u3002");
+    if (!isSafeUid(uid)) throw new DeskDropError("UNSUPPORTED_API", "Roam returned a UID that cannot be used safely.");
     pendingWrites.set(key, uid);
     try {
       await run(() => adapter.createEntry({ deskUid: desk.uid, uid, string }));
@@ -173,24 +173,24 @@ function createDeskCapture({ getAPI }) {
   async function undoOne(receipt, signal) {
     active(signal);
     const saved = receipt && receipts.get(receipt);
-    if (!saved) throw new DeskDropError("INVALID_RECEIPT", "\u8FD9\u4E2A\u64A4\u9500\u51ED\u636E\u4E0D\u5B58\u5728\u6216\u5DF2\u7ECF\u5931\u6548\u3002");
+    if (!saved) throw new DeskDropError("INVALID_RECEIPT", "Undo is no longer available for this entry.");
     const run = (fn) => guarded(saved.context, fn, signal);
     const desk = await run(() => adapter.resolveDesk(saved.context));
-    if (desk.uid !== saved.deskUid) throw new DeskDropError("DESK_CHANGED", "Desk \u7ED1\u5B9A\u5DF2\u6539\u53D8\uFF0C\u8BF7\u4EBA\u5DE5\u5904\u7406\u8FD9\u4E2A\u5165\u53E3\u3002");
+    if (desk.uid !== saved.deskUid) throw new DeskDropError("DESK_CHANGED", "The Desk binding changed. Please handle this entry manually.");
     const current = await run(() => adapter.readBlock(saved.entry.uid));
     if (!current) {
       receipts.delete(receipt);
       return { status: "already-removed" };
     }
     if (current.string !== saved.entry.string || current.edited !== saved.entry.edited || current.parentUids.length !== 1 || current.parentUids[0] !== saved.deskUid || current.childUids.length || current.referrerUids.length || typeof current.title === "string") {
-      throw new DeskDropError("UNDO_UNSAFE", "\u5165\u53E3\u5DF2\u88AB\u7F16\u8F91\u3001\u79FB\u52A8\u6216\u5F15\u7528\uFF0C\u8BF7\u5728 Desk \u4E2D\u4EBA\u5DE5\u5904\u7406\u3002");
+      throw new DeskDropError("UNDO_UNSAFE", "This entry has changed or is in use. Please review it in Desk.");
     }
     try {
       await run(() => adapter.deleteEntry(current.uid));
     } catch (error) {
       if (interrupted(error)) throw error;
     }
-    if (await run(() => adapter.readBlock(current.uid))) throw new DeskDropError("UNDO_UNCONFIRMED", "\u5C1A\u672A\u786E\u8BA4\u64A4\u9500\u7ED3\u679C\uFF0C\u8BF7\u67E5\u770B Desk\u3002");
+    if (await run(() => adapter.readBlock(current.uid))) throw new DeskDropError("UNDO_UNCONFIRMED", "Could not confirm Undo. Check Desk before trying again.");
     receipts.delete(receipt);
     return { status: "undone" };
   }
@@ -218,13 +218,13 @@ var lines = (value) => typeof value === "string" ? [...new Set(value.split(/\r?\
 var hasRoamPayload = (transfer) => Array.from(transfer?.types ?? []).some((type) => ["roam/block-uid-list-only-parents", "roam/block-uid-list"].includes(type));
 var hasModifier = (event) => Boolean(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);
 function readDropPayload(transfer, origin, expectedSourceUid) {
-  if (!hasRoamPayload(transfer) || typeof transfer.getData !== "function") throw new DeskDropError("INVALID_PAYLOAD", "\u53EA\u63A5\u53D7 Roam \u5185\u90E8 Block \u7684\u539F\u751F\u62D6\u62FD\u3002");
+  if (!hasRoamPayload(transfer) || typeof transfer.getData !== "function") throw new DeskDropError("INVALID_PAYLOAD", "Only native block drags from Roam are accepted.");
   const uids2 = lines(transfer.getData("roam/block-uid-list-only-parents") || transfer.getData("roam/block-uid-list"));
-  if (uids2.length !== 1) throw new DeskDropError("SINGLE_BLOCK_ONLY", "\u7B2C\u4E00\u7248\u53EA\u652F\u6301\u4E00\u4E2A\u9876\u5C42 Block\uFF0C\u8BF7\u9010\u5757\u62D6\u5165\u3002");
-  if (!isSafeUid(uids2[0])) throw new DeskDropError("INVALID_UID", "\u65E0\u6CD5\u5B89\u5168\u8BC6\u522B\u62D6\u52A8\u7684 Block\u3002");
-  if (expectedSourceUid && expectedSourceUid !== uids2[0]) throw new DeskDropError("SOURCE_CHANGED", "\u62D6\u62FD\u6765\u6E90\u4E0E\u8F7D\u8377\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u53D6\u6D88\u9009\u62E9\u540E\u91CD\u8BD5\u3002");
+  if (uids2.length !== 1) throw new DeskDropError("SINGLE_BLOCK_ONLY", "This version accepts one top-level block at a time. Drag blocks individually.");
+  if (!isSafeUid(uids2[0])) throw new DeskDropError("INVALID_UID", "Could not safely identify the dragged block.");
+  if (expectedSourceUid && expectedSourceUid !== uids2[0]) throw new DeskDropError("SOURCE_CHANGED", "The drag source does not match its payload. Clear the selection and try again.");
   const uris = lines(transfer.getData("roam/roam-uri-list"));
-  if (!uris.length || uris.length > 1e3) throw new DeskDropError("INVALID_PAYLOAD", "\u65E0\u6CD5\u786E\u8BA4\u6765\u6E90\u56FE\u8C31\uFF0C\u672A\u52A0\u5165 Desk\u3002");
+  if (!uris.length || uris.length > 1e3) throw new DeskDropError("INVALID_PAYLOAD", "Could not confirm the source graph. Nothing was added to Desk.");
   const parsed = uris.map((uri) => {
     try {
       const url = new URL(uri);
@@ -233,13 +233,13 @@ function readDropPayload(transfer, origin, expectedSourceUid) {
       if (!trusted || !match) throw new Error("Unsupported URI");
       return { type: match[1] === "app" ? "hosted" : "offline", graph: decodeURIComponent(match[2]), uid: decodeURIComponent(match[3]) };
     } catch {
-      throw new DeskDropError("INVALID_PAYLOAD", "\u65E0\u6CD5\u8BC6\u522B\u539F\u751F Roam \u94FE\u63A5\uFF0C\u672A\u52A0\u5165 Desk\u3002");
+      throw new DeskDropError("INVALID_PAYLOAD", "Could not recognize the native Roam link. Nothing was added to Desk.");
     }
   });
   if (parsed.some((item) => item.graph !== origin?.graphName || item.type !== origin?.graphType)) {
-    throw new DeskDropError("CROSS_GRAPH", "\u7B2C\u4E00\u7248\u4E0D\u63A5\u53D7\u8DE8\u56FE\u8C31\u62D6\u62FD\u3002");
+    throw new DeskDropError("CROSS_GRAPH", "Cross-graph drops are not supported in this version.");
   }
-  if (!parsed.some((item) => item.uid === uids2[0])) throw new DeskDropError("INVALID_PAYLOAD", "\u62D6\u62FD\u94FE\u63A5\u4E0E Block UID \u4E0D\u4E00\u81F4\u3002");
+  if (!parsed.some((item) => item.uid === uids2[0])) throw new DeskDropError("INVALID_PAYLOAD", "The drag link does not match the block UID.");
   return uids2;
 }
 
@@ -287,7 +287,7 @@ function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       row.setAttribute("data-rr-desk-drop", "ready");
       hint = documentRef.createElement("span");
       hint.className = "rr-desk-drop-hint";
-      hint.textContent = "\u653E\u5165 Desk \xB7 \u539F\u6587\u4FDD\u7559";
+      hint.textContent = "Add to Desk \xB7 keep original";
       hint.setAttribute("aria-hidden", "true");
       row.appendChild(hint);
     },
@@ -307,7 +307,7 @@ function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       notice.appendChild(text);
       const buttons = documentRef.createElement("div");
       buttons.className = "rr-desk-drop-notice__actions";
-      for (const action of [...actions, { id: "dismiss", label: "\u5173\u95ED", run: clearNotice }]) {
+      for (const action of [...actions, { id: "dismiss", label: "Dismiss", run: clearNotice }]) {
         const button = documentRef.createElement("button");
         button.type = "button";
         button.textContent = action.label;
@@ -366,7 +366,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
   const ui = createDeskDropUI({ documentRef, windowRef, onActionError: showError });
   function showError(error) {
     if (!loaded || error?.code === "ABORTED") return;
-    ui.show(error instanceof DeskDropError ? error.message : "\u64CD\u4F5C\u672A\u5B8C\u6210\uFF0C\u8BF7\u5728 Desk \u4E2D\u6838\u5BF9\uFF1B\u539F Block \u672A\u88AB\u672C\u63D2\u4EF6\u79FB\u52A8\u3002", { kind: "error", persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : "Could not complete the operation. Check Desk; Desk Drop has not moved the original block.", { kind: "error", persistent: true });
   }
   function resetDrag() {
     session = null;
@@ -427,22 +427,22 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     event.preventDefault();
     event.stopPropagation();
     try {
-      if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "\u62D6\u62FD\u9014\u4E2D\u56FE\u8C31\u6216\u7528\u6237\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u62D6\u52A8\u3002");
+      if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "The graph or user changed during the drag. Start a new drag.");
       const uids2 = readDropPayload(event.dataTransfer, source.origin, source.sourceUid);
-      ui.show("\u6B63\u5728\u52A0\u5165 Desk\u2026", { persistent: true });
+      ui.show("Adding to Desk...", { persistent: true });
       const result = await capture.capture({ uids: uids2, origin: source.origin, signal: controller.signal });
       if (!loaded) return;
-      const actions = [{ id: "view", label: "\u67E5\u770B", run: () => {
-        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "\u8BF7\u56DE\u5230\u539F\u56FE\u8C31\u540E\u67E5\u770B Desk\u3002");
+      const actions = [{ id: "view", label: "View", run: () => {
+        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError("CONTEXT_CHANGED", "Return to the original graph to view Desk.");
         const row = documentRef.querySelector(DESK_SELECTOR);
-        if (!row) throw new DeskDropError("DESK_NOT_VISIBLE", "\u672A\u627E\u5230\u539F\u751F Desk \u5165\u53E3\uFF0C\u8BF7\u4ECE\u5DE6\u4FA7\u680F\u6253\u5F00\u3002");
+        if (!row) throw new DeskDropError("DESK_NOT_VISIBLE", "The native Desk entry was not found. Open Desk from the left sidebar.");
         row.click();
       } }];
-      if (result.receipt) actions.push({ id: "undo", label: "\u64A4\u9500", run: async () => {
+      if (result.receipt) actions.push({ id: "undo", label: "Undo", run: async () => {
         await capture.undo(result.receipt, { signal: controller.signal });
-        if (loaded) ui.show("\u5DF2\u79FB\u9664\u672C\u6B21 Desk \u5165\u53E3\uFF0C\u539F\u6587\u4FDD\u7559\u3002");
+        if (loaded) ui.show("Removed this Desk entry. Original block kept.");
       } });
-      ui.show(result.status === "existing" ? "\u5DF2\u5728 Desk\uFF0C\u6CA1\u6709\u91CD\u590D\u6DFB\u52A0\u3002" : "\u5DF2\u52A0\u5165 Desk\uFF0C\u539F\u6587\u4FDD\u7559\u3002", { actions });
+      ui.show(result.status === "existing" ? "Already on Desk. No duplicate added." : "Added to Desk. Original kept in place.", { actions });
     } catch (error) {
       showError(error);
     }
@@ -465,7 +465,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
   return {
     start() {
       if (loaded) return;
-      if (stopped) throw new DeskDropError("ABORTED", "\u8BF7\u521B\u5EFA\u65B0\u7684\u63D2\u4EF6\u5B9E\u4F8B\u540E\u91CD\u542F\u3002");
+      if (stopped) throw new DeskDropError("ABORTED", "Create a new plugin instance before restarting.");
       context = capture.getContext();
       loaded = true;
       ui.mount();
@@ -492,7 +492,7 @@ function createExtensionLifecycle(windowRef = globalThis.window) {
   let runtime;
   return {
     onload() {
-      if (!windowRef?.document) throw new Error("Desk Drop \u9700\u8981 Roam \u6D4F\u89C8\u5668\u73AF\u5883\u3002");
+      if (!windowRef?.document) throw new Error("Desk Drop requires a Roam browser environment.");
       windowRef[KEY]?.stop?.();
       runtime?.stop();
       delete windowRef[KEY];

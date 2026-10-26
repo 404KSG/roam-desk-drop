@@ -14,7 +14,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
 
   function showError(error) {
     if (!loaded || error?.code === 'ABORTED') return;
-    ui.show(error instanceof DeskDropError ? error.message : '操作未完成，请在 Desk 中核对；原 Block 未被本插件移动。', { kind: 'error', persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : 'Could not complete the operation. Check Desk; Desk Drop has not moved the original block.', { kind: 'error', persistent: true });
   }
   function resetDrag() { session = null; ui.clearHighlight(); }
   function transferEffect(transfer) {
@@ -61,25 +61,25 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     const target = targetOf(event), source = session;
     resetDrag();
     if (!target || !source || event.defaultPrevented || hasModifier(event) || !hasRoamPayload(event.dataTransfer) || !transferEffect(event.dataTransfer)) return;
-    // 仅在已确认的 Desk 接收区阻止原生 drop；其他区域和修饰键全部让行。
+    // Intercept only confirmed Desk drops; leave other targets and modifier-key drags alone.
     event.preventDefault(); event.stopPropagation();
     try {
-      if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', '拖拽途中图谱或用户已改变，请重新拖动。');
+      if (!sameContext(source.origin, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', 'The graph or user changed during the drag. Start a new drag.');
       const uids = readDropPayload(event.dataTransfer, source.origin, source.sourceUid);
-      ui.show('正在加入 Desk…', { persistent: true });
+      ui.show('Adding to Desk...', { persistent: true });
       const result = await capture.capture({ uids, origin: source.origin, signal: controller.signal });
       if (!loaded) return;
-      const actions = [{ id: 'view', label: '查看', run: () => {
-        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', '请回到原图谱后查看 Desk。');
+      const actions = [{ id: 'view', label: 'View', run: () => {
+        if (!sameContext(result.context, capture.getContext())) throw new DeskDropError('CONTEXT_CHANGED', 'Return to the original graph to view Desk.');
         const row = documentRef.querySelector(DESK_SELECTOR);
-        if (!row) throw new DeskDropError('DESK_NOT_VISIBLE', '未找到原生 Desk 入口，请从左侧栏打开。');
+        if (!row) throw new DeskDropError('DESK_NOT_VISIBLE', 'The native Desk entry was not found. Open Desk from the left sidebar.');
         row.click();
       } }];
-      if (result.receipt) actions.push({ id: 'undo', label: '撤销', run: async () => {
+      if (result.receipt) actions.push({ id: 'undo', label: 'Undo', run: async () => {
         await capture.undo(result.receipt, { signal: controller.signal });
-        if (loaded) ui.show('已移除本次 Desk 入口，原文保留。');
+        if (loaded) ui.show('Removed this Desk entry. Original block kept.');
       } });
-      ui.show(result.status === 'existing' ? '已在 Desk，没有重复添加。' : '已加入 Desk，原文保留。', { actions });
+      ui.show(result.status === 'existing' ? 'Already on Desk. No duplicate added.' : 'Added to Desk. Original kept in place.', { actions });
     } catch (error) { showError(error); }
   }
   function onKeyDown(event) { if (event.key === 'Escape') resetDrag(); }
@@ -97,7 +97,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
   return {
     start() {
       if (loaded) return;
-      if (stopped) throw new DeskDropError('ABORTED', '请创建新的插件实例后重启。');
+      if (stopped) throw new DeskDropError('ABORTED', 'Create a new plugin instance before restarting.');
       context = capture.getContext();
       loaded = true; ui.mount();
       for (const [type, listener] of windowListeners) windowRef.addEventListener(type, listener, true);

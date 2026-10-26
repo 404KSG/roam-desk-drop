@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.1.0 — Draft prototype
+## 0.1.1 - English-only draft update
+
+- Translate all interface messages, errors, documentation, comments, test descriptions, and fixture content into English.
+- Regenerate the sandbox screenshot with English UI text.
+- Add a regression check for untranslated text, including Unicode escapes in the compiled bundle.
+- Keep capture, deduplication, Undo safeguards, and native embed syntax unchanged.
+
+## 0.1.0 - Draft prototype
 
 - Add a drop target to the existing left-sidebar Desk row for a single ordinary block.
 - Create native `embed-path` entries without moving or copying the source content.

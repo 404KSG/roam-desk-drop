@@ -6,13 +6,13 @@ export const hasRoamPayload = transfer => Array.from(transfer?.types ?? []).some
 export const hasModifier = event => Boolean(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);
 
 export function readDropPayload(transfer, origin, expectedSourceUid) {
-  if (!hasRoamPayload(transfer) || typeof transfer.getData !== 'function') throw new DeskDropError('INVALID_PAYLOAD', '只接受 Roam 内部 Block 的原生拖拽。');
+  if (!hasRoamPayload(transfer) || typeof transfer.getData !== 'function') throw new DeskDropError('INVALID_PAYLOAD', 'Only native block drags from Roam are accepted.');
   const uids = lines(transfer.getData('roam/block-uid-list-only-parents') || transfer.getData('roam/block-uid-list'));
-  if (uids.length !== 1) throw new DeskDropError('SINGLE_BLOCK_ONLY', '第一版只支持一个顶层 Block，请逐块拖入。');
-  if (!isSafeUid(uids[0])) throw new DeskDropError('INVALID_UID', '无法安全识别拖动的 Block。');
-  if (expectedSourceUid && expectedSourceUid !== uids[0]) throw new DeskDropError('SOURCE_CHANGED', '拖拽来源与载荷不一致，请取消选择后重试。');
+  if (uids.length !== 1) throw new DeskDropError('SINGLE_BLOCK_ONLY', 'This version accepts one top-level block at a time. Drag blocks individually.');
+  if (!isSafeUid(uids[0])) throw new DeskDropError('INVALID_UID', 'Could not safely identify the dragged block.');
+  if (expectedSourceUid && expectedSourceUid !== uids[0]) throw new DeskDropError('SOURCE_CHANGED', 'The drag source does not match its payload. Clear the selection and try again.');
   const uris = lines(transfer.getData('roam/roam-uri-list'));
-  if (!uris.length || uris.length > 1000) throw new DeskDropError('INVALID_PAYLOAD', '无法确认来源图谱，未加入 Desk。');
+  if (!uris.length || uris.length > 1000) throw new DeskDropError('INVALID_PAYLOAD', 'Could not confirm the source graph. Nothing was added to Desk.');
   const parsed = uris.map(uri => {
     try {
       const url = new URL(uri);
@@ -21,12 +21,12 @@ export function readDropPayload(transfer, origin, expectedSourceUid) {
       if (!trusted || !match) throw new Error('Unsupported URI');
       return { type: match[1] === 'app' ? 'hosted' : 'offline', graph: decodeURIComponent(match[2]), uid: decodeURIComponent(match[3]) };
     } catch {
-      throw new DeskDropError('INVALID_PAYLOAD', '无法识别原生 Roam 链接，未加入 Desk。');
+      throw new DeskDropError('INVALID_PAYLOAD', 'Could not recognize the native Roam link. Nothing was added to Desk.');
     }
   });
   if (parsed.some(item => item.graph !== origin?.graphName || item.type !== origin?.graphType)) {
-    throw new DeskDropError('CROSS_GRAPH', '第一版不接受跨图谱拖拽。');
+    throw new DeskDropError('CROSS_GRAPH', 'Cross-graph drops are not supported in this version.');
   }
-  if (!parsed.some(item => item.uid === uids[0])) throw new DeskDropError('INVALID_PAYLOAD', '拖拽链接与 Block UID 不一致。');
+  if (!parsed.some(item => item.uid === uids[0])) throw new DeskDropError('INVALID_PAYLOAD', 'The drag link does not match the block UID.');
   return uids;
 }

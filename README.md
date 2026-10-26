@@ -2,9 +2,7 @@
 
 Drag a block onto the existing **Desk** item in Roam's left sidebar to add a native embed. The original block stays in place, with its content and children intact.
 
-[简体中文](https://github.com/404KSG/roam-desk-drop/blob/main/README.zh-CN.md)
-
-> **Draft prototype, not a Roam Depot release.** Local sandbox tests pass, but live test-graph writes, native Desk rendering, Electron behavior, and coexistence with installed drag extensions still need validation. Initial status messages are in Simplified Chinese.
+> **Draft prototype, not a Roam Depot release.** Local sandbox tests pass, but live test-graph writes, native Desk rendering, Electron behavior, and coexistence with installed drag extensions still need validation. The extension, documentation, tests, and demo now use English throughout.
 
 ## How it works
 
@@ -22,7 +20,7 @@ The entry is an embed, not a separate copy. Repeated drops do not add duplicates
 
 ## Sandbox demonstration
 
-![Desk Drop in the local in-memory test harness](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png)
+![Desk Drop in the local in-memory test harness](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-sandbox.png?v=0.1.1)
 
 This screenshot shows the local test harness, **not a live Roam graph**. The source block remains unchanged while the simulated Desk receives the native embed string.
 
@@ -47,12 +45,22 @@ This screenshot shows the local test harness, **not a live Roam graph**. The sou
 
 ## Validation
 
-- **37 automated tests** pass for capture, source preservation, deduplication, undo guards, graph changes, cancellation, rebinding, ambiguous write outcomes, and payload validation.
+- **38 automated tests** pass for capture, source preservation, deduplication, undo guards, graph changes, cancellation, rebinding, ambiguous write outcomes, payload validation, and untranslated-copy detection.
 - **10 browser integration checks** pass against both the source entry point and the compiled bundle in an in-memory fixture.
 - A browser-driven pointer drag produced trusted `dragstart` and `drop` events; the fixture received an embed, and Undo removed only the new entry.
 - Read-only inspection of a live Roam client confirmed the required methods and metadata shapes. **No live-graph create/delete test has been performed.**
 
 See [verification details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) for the remaining checks. Event-level modifier tests are not a substitute for testing alongside the actual Drag References extension.
+
+## Files
+
+- `extension.js`: the prebuilt Roam Depot ES module.
+- `src/desk-capture.js`: capture validation, deduplication, readback, and guarded Undo.
+- `src/roam-adapter.js`: public SDK calls and the Desk compatibility layer.
+- `src/drop-payload.js`: native drag-payload validation.
+- `src/runtime.js` and `src/ui.js`: the drop target, notices, and lifecycle cleanup.
+- `test/fixtures/`: the isolated in-memory browser harness.
+- `docs/design.md` and `docs/verification.md`: scope, test interfaces, and verification status.
 
 ## Development
 

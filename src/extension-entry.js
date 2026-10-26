@@ -6,7 +6,7 @@ export function createExtensionLifecycle(windowRef = globalThis.window) {
   let runtime;
   return {
     onload() {
-      if (!windowRef?.document) throw new Error('Desk Drop 需要 Roam 浏览器环境。');
+      if (!windowRef?.document) throw new Error('Desk Drop requires a Roam browser environment.');
       windowRef[KEY]?.stop?.();
       runtime?.stop();
       delete windowRef[KEY];

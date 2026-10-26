@@ -1,9 +1,9 @@
 {
   "name": "roam-desk-drop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "将单个 Roam Block 拖到原生 Desk，添加嵌入引用而不移动原文。",
+  "description": "Drag a Roam block onto Desk to add a native embed without moving the original.",
   "scripts": {
     "test": "node --test test/*.test.js",
     "build": "node scripts/build.mjs",

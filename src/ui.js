@@ -37,7 +37,7 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       oldMarker = row.getAttribute('data-rr-desk-drop');
       row.setAttribute('data-rr-desk-drop', 'ready');
       hint = documentRef.createElement('span'); hint.className = 'rr-desk-drop-hint';
-      hint.textContent = '放入 Desk · 原文保留'; hint.setAttribute('aria-hidden', 'true');
+      hint.textContent = 'Add to Desk · keep original'; hint.setAttribute('aria-hidden', 'true');
       row.appendChild(hint);
     },
     clearHighlight,
@@ -50,7 +50,7 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       notice.dataset.kind = kind; notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite');
       const text = documentRef.createElement('div'); text.textContent = message; notice.appendChild(text);
       const buttons = documentRef.createElement('div'); buttons.className = 'rr-desk-drop-notice__actions';
-      for (const action of [...actions, { id: 'dismiss', label: '关闭', run: clearNotice }]) {
+      for (const action of [...actions, { id: 'dismiss', label: 'Dismiss', run: clearNotice }]) {
         const button = documentRef.createElement('button'); button.type = 'button';
         button.textContent = action.label; button.dataset.rrDeskDropAction = action.id;
         button.addEventListener('click', async event => {

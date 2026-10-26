@@ -11,11 +11,11 @@ export function createDeskCapture({ getAPI }) {
   const adapter = createRoamDeskAdapter({ getAPI });
   const pendingWrites = new Map();
   const interrupted = error => ['ABORTED', 'CONTEXT_CHANGED', 'NO_CONTEXT'].includes(error?.code);
-  const unconfirmed = () => new DeskDropError('WRITE_UNCONFIRMED', '添加结果尚未确认，已暂停同一块的重试；请先查看 Desk。');
+  const unconfirmed = () => new DeskDropError('WRITE_UNCONFIRMED', 'Could not confirm the result. Further attempts for this block are paused; check Desk first.');
   let receipts = new WeakMap(), tail = Promise.resolve(), disposed = false;
 
   function active(signal) {
-    if (disposed || signal?.aborted) throw new DeskDropError('ABORTED', '插件已停止，本次操作已取消。');
+    if (disposed || signal?.aborted) throw new DeskDropError('ABORTED', 'Desk Drop has stopped; this operation will not continue.');
   }
   async function guarded(context, fn, signal) {
     active(signal);
@@ -35,18 +35,18 @@ export function createDeskCapture({ getAPI }) {
     const run = fn => guarded(origin, fn, signal);
     active(signal);
     adapter.assertContext(origin);
-    if (!Array.isArray(uids) || uids.length !== 1) throw new DeskDropError('SINGLE_BLOCK_ONLY', '第一版只支持一个顶层 Block，请逐块拖入。');
+    if (!Array.isArray(uids) || uids.length !== 1) throw new DeskDropError('SINGLE_BLOCK_ONLY', 'This version accepts one top-level block at a time. Drag blocks individually.');
     const sourceUid = uids[0];
-    if (!isSafeUid(sourceUid)) throw new DeskDropError('INVALID_UID', '无法安全识别这个 Block 的 UID。');
+    if (!isSafeUid(sourceUid)) throw new DeskDropError('INVALID_UID', 'Could not safely identify the block UID.');
     const desk = await run(() => adapter.resolveDesk(origin));
-    if (sourceUid === desk.uid) throw new DeskDropError('DESK_SOURCE', '不能把 Desk 再次放进它自己。');
+    if (sourceUid === desk.uid) throw new DeskDropError('DESK_SOURCE', 'Desk cannot be added to itself.');
     const source = await run(() => adapter.readBlock(sourceUid));
-    if (!source || source.uid !== sourceUid) throw new DeskDropError('SOURCE_MISSING', '源 Block 已不存在，未加入 Desk。');
-    if (typeof source.title === 'string' || typeof source.string !== 'string') throw new DeskDropError('NOT_A_BLOCK', '第一版只接受 Block，不接受整个页面。');
-    if (!source.pageUid) throw new DeskDropError('SOURCE_METADATA', '无法确认源 Block 所属页面，未加入 Desk。');
-    if (await run(() => adapter.isDeskPage(source.pageUid))) throw new DeskDropError('DESK_SOURCE', 'Desk 内部的笔记不需要再次加入 Desk。');
+    if (!source || source.uid !== sourceUid) throw new DeskDropError('SOURCE_MISSING', 'The source block no longer exists. Nothing was added to Desk.');
+    if (typeof source.title === 'string' || typeof source.string !== 'string') throw new DeskDropError('NOT_A_BLOCK', 'This version accepts blocks, not whole pages.');
+    if (!source.pageUid) throw new DeskDropError('SOURCE_METADATA', 'Could not identify the source page. Nothing was added to Desk.');
+    if (await run(() => adapter.isDeskPage(source.pageUid))) throw new DeskDropError('DESK_SOURCE', 'Notes already inside a Desk page cannot be added again.');
     const currentDesk = await run(() => adapter.resolveDesk(origin));
-    if (currentDesk.uid !== desk.uid) throw new DeskDropError('DESK_CHANGED', 'Desk 绑定刚刚改变，请重新拖入。');
+    if (currentDesk.uid !== desk.uid) throw new DeskDropError('DESK_CHANGED', 'The Desk binding changed. Please drag the block again.');
     const key = JSON.stringify([origin.graphName, origin.graphType, origin.userUid, desk.uid, sourceUid]);
     const existing = currentDesk.entries.find(entry => embeddedBlockUid(entry.string) === sourceUid);
     if (existing) {
@@ -63,13 +63,13 @@ export function createDeskCapture({ getAPI }) {
       return { status: 'existing', entryUid: pending, sourceUid, deskUid: desk.uid, context: origin };
     }
     const uid = adapter.generateUID();
-    if (!isSafeUid(uid)) throw new DeskDropError('UNSUPPORTED_API', 'Roam 返回了无法安全使用的新 UID。');
+    if (!isSafeUid(uid)) throw new DeskDropError('UNSUPPORTED_API', 'Roam returned a UID that cannot be used safely.');
     pendingWrites.set(key, uid);
     try {
       await run(() => adapter.createEntry({ deskUid: desk.uid, uid, string }));
     } catch (error) {
       if (interrupted(error)) throw error;
-      // SDK 报错不等于事务未发生；必须按预先生成的 UID 读回。
+      // An SDK error does not prove the write failed; read back the pre-generated UID.
     }
     let entry;
     try { entry = await run(() => adapter.readBlock(uid)); }
@@ -87,10 +87,10 @@ export function createDeskCapture({ getAPI }) {
   async function undoOne(receipt, signal) {
     active(signal);
     const saved = receipt && receipts.get(receipt);
-    if (!saved) throw new DeskDropError('INVALID_RECEIPT', '这个撤销凭据不存在或已经失效。');
+    if (!saved) throw new DeskDropError('INVALID_RECEIPT', 'Undo is no longer available for this entry.');
     const run = fn => guarded(saved.context, fn, signal);
     const desk = await run(() => adapter.resolveDesk(saved.context));
-    if (desk.uid !== saved.deskUid) throw new DeskDropError('DESK_CHANGED', 'Desk 绑定已改变，请人工处理这个入口。');
+    if (desk.uid !== saved.deskUid) throw new DeskDropError('DESK_CHANGED', 'The Desk binding changed. Please handle this entry manually.');
     const current = await run(() => adapter.readBlock(saved.entry.uid));
     if (!current) {
       receipts.delete(receipt);
@@ -99,11 +99,11 @@ export function createDeskCapture({ getAPI }) {
     if (current.string !== saved.entry.string || current.edited !== saved.entry.edited ||
         current.parentUids.length !== 1 || current.parentUids[0] !== saved.deskUid ||
         current.childUids.length || current.referrerUids.length || typeof current.title === 'string') {
-      throw new DeskDropError('UNDO_UNSAFE', '入口已被编辑、移动或引用，请在 Desk 中人工处理。');
+      throw new DeskDropError('UNDO_UNSAFE', 'This entry has changed or is in use. Please review it in Desk.');
     }
     try { await run(() => adapter.deleteEntry(current.uid)); }
     catch (error) { if (interrupted(error)) throw error; }
-    if (await run(() => adapter.readBlock(current.uid))) throw new DeskDropError('UNDO_UNCONFIRMED', '尚未确认撤销结果，请查看 Desk。');
+    if (await run(() => adapter.readBlock(current.uid))) throw new DeskDropError('UNDO_UNCONFIRMED', 'Could not confirm Undo. Check Desk before trying again.');
     receipts.delete(receipt);
     return { status: 'undone' };
   }

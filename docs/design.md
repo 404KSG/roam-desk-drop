@@ -1,37 +1,38 @@
-# Desk Drop 0.1：已确认的最小闭环
+# Desk Drop 0.1: confirmed baseline
 
-2026-10-26。用户已确认：拖入 Desk 使用原生嵌入形式，源 Block 留在原位置，不复制正文。
+Decision confirmed on October 26, 2026: dropping onto Desk adds a native embed. The original block stays in place; its text is not copied.
 
-## 范围
+## Scope
 
-- 独立 Roam Depot 插件；普通单个顶层 Block，从主 outline 或右侧 outline 拖到现有 Desk 行。
-- 使用当前用户的 `:user/desk-page` 绑定；不猜页面名，不创建 Desk，不修改用户绑定。
-- 新建 `{{embed-path: ((uid)) closed}}` 入口，放到 Desk 顶部。重复已有 embed / embed-path 入口不再添加。
-- 原 Block 内容、父级、顺序和子块不变；不调用 move/update 源块。
-- 保留 Desk 原来的点击行为。添加后不自动导航，不写剪贴板。
-- 查看按需打开原生 Desk；撤销仅允许移除本次创建且未被改动、引用或添加子块的入口。不调用全局 undo。
+- An independent Roam Depot extension for dragging one ordinary top-level block from the main or right-sidebar outline onto the existing Desk row.
+- Resolve the current user's `:user/desk-page` binding. Do not guess the page name, create a Desk, or modify the binding.
+- Create `{{embed-path: ((uid)) closed}}` at the top of Desk. Do not add another entry when a matching embed or embed-path entry already exists.
+- Preserve the source UID, text, parent, order, and children. Do not move or update the source.
+- Preserve the native Desk click behavior. Do not navigate automatically or write to the clipboard after capture.
+- View opens native Desk on request. Undo may remove only an entry created by this instance that has not been changed, referenced, or given children. Do not call global Undo.
 
-## 本轮确认的测试接口
+## Test interfaces
 
-1. `DeskCapture.capture` / `undo`：通过真实数据适配模块连接模拟 Roam SDK，验证图谱中可观察的结果与原文不变。
-2. `createDeskDropRuntime.start/stop`：通过浏览器事件验证接收区、普通拖动/修饰键让行、取消和卸载清理。
-3. Roam SDK 适配模块：只模拟外部 SDK，不模拟本项目内部模块；约束实际调用形状和异常处理。
+1. `DeskCapture.capture` and `undo`: connect the real adapter to a simulated Roam SDK and check observable graph results and source preservation.
+2. `createDeskDropRuntime.start/stop`: exercise browser events to verify the drop target, native/modifier drag pass-through, cancellation, and unload cleanup.
+3. Roam SDK adapter: mock only the external SDK, not this project's modules. Check actual call shapes and error handling.
 
-先做一个失败测试，再补对应实现；逐个增加安全边界。浏览器集成测试只使用本地内存图谱 fixture，不对正式 Roam 图谱做 drop 写入。
+Start with a failing test, implement that behavior, and add safety cases incrementally. Browser integration tests use a local in-memory graph fixture, not writes to a production Roam graph.
 
-## 不包含
+## Out of scope
 
-多顶层块、网页/文件/跨窗口拖入、跨图谱拖入、自动展开侧栏、手机触控手势、自动分类、AI、正式安装和发布。引用列表、查询和 embed 渲染暂不接管，以免第一版误认来源。
+Multiple top-level blocks; web-page, file, or cross-window drops; cross-graph capture; automatic sidebar expansion; mobile touch gestures; automatic classification; AI; production installation; and release. Linked-reference, query, and embed surfaces are not handled in the first version because their source identity needs separate validation.
 
-## 当前兼容依据
+## Compatibility basis
 
-官方客户端 `0.13.13-2e4c3c7d` 的原生 Desk 写块格式和 `:user/desk-page` 绑定。它们不是已发布的稳定 Desk 专用 API，需在真实测试图谱中验证后才接入正式图谱。
+The native Desk entry format and `:user/desk-page` binding were inspected in client `0.13.13-2e4c3c7d`. They are not a published, stable Desk API contract. Validate them in a separate test graph before connecting the extension to a production graph.
 
-官方拖拽载荷：`roam/block-uid-list-only-parents`、`roam/block-uid-list`、`roam/roam-uri-list`。使用公开的 `roamAlphaAPI.data.block.create/delete`、`data.pull/q`、`user.uid()`、`graph`、`util.generateUID()`；不调用混淆后的内部函数。
+Official drag payloads: `roam/block-uid-list-only-parents`, `roam/block-uid-list`, and `roam/roam-uri-list`. Use public `roamAlphaAPI.data.block.create/delete`, `data.pull/q`, `user.uid()`, `graph`, and `util.generateUID()`. Do not call minified internal functions.
 
-资料：
+Sources:
+
 - https://roamdocs.fyi/developer-documentation/llms-full.txt
 - https://roamresearch.com/js/compiled/main.js
 - https://roamresearch.com/js/compiled/route-app.js
 
-仅浏览器内会话级去重，不承诺跨设备分布式原子去重。无法确认的写入先读回，不自动重复创建。
+Deduplication is local to the current browser instance, not a distributed atomic guarantee. Read back uncertain writes before retrying; do not create again blindly.

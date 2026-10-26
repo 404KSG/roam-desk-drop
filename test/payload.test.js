@@ -7,7 +7,7 @@ const transfer = (overrides = {}) => {
   return { types: Object.keys(data), getData: type => data[type] ?? '' };
 };
 
-test('官方拖拽载荷通过 UID 与 graph 校验，不从正文猜测来源', () => {
+test('native drag payloads validate UID and graph without guessing from block text', () => {
   assert.deepEqual(readDropPayload(transfer(), origin, 'block0001'), ['block0001']);
   for (const data of [
     { 'roam/roam-uri-list': 'roam://#/app/Other/page/block0001' },
@@ -18,11 +18,11 @@ test('官方拖拽载荷通过 UID 与 graph 校验，不从正文猜测来源',
   ]) assert.throws(() => readDropPayload(transfer(data), origin, 'block0001'));
 });
 
-test('支持原生 HTTPS / offline 链接和不同长度 UID，仍然拒绝普通文本', () => {
+test('HTTPS/offline links, Unicode graph names, and long UIDs work; plain text is rejected', () => {
   assert.deepEqual(readDropPayload(transfer({ 'roam/roam-uri-list': 'https://roamresearch.com/#/app/Test%20graph/page/block0001' }), origin), ['block0001']);
   const uid = 'imported-block-with-long-uid';
-  const context = { ...origin, graphName: '测试图谱', graphType: 'offline' };
-  assert.deepEqual(readDropPayload(transfer({ 'roam/block-uid-list-only-parents': uid, 'roam/roam-uri-list': `roam://#/offline/${encodeURIComponent('测试图谱')}/page/${uid}` }), context), [uid]);
+  const context = { ...origin, graphName: 'Research \u{1F4DA}', graphType: 'offline' };
+  assert.deepEqual(readDropPayload(transfer({ 'roam/block-uid-list-only-parents': uid, 'roam/roam-uri-list': `roam://#/offline/${encodeURIComponent('Research \u{1F4DA}')}/page/${uid}` }), context), [uid]);
   assert.throws(() => readDropPayload({ types: ['text/plain'], getData: () => 'block0001' }, origin));
   assert.throws(() => readDropPayload(transfer(), { ...origin, graphType: 'offline' }));
 });

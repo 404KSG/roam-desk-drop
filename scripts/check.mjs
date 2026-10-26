@@ -14,4 +14,4 @@ assert.doesNotMatch(bundle, /Test graph|user-one|block0001/);
 const extension = await import(pathToFileURL(resolve(root, 'extension.js')).href);
 assert.equal(typeof extension.default.onload, 'function');
 assert.equal(typeof extension.default.onunload, 'function');
-console.log('源码语法、构建产物入口、外部网络和源块移动/更新检查通过。');
+console.log('Source syntax, bundle exports, network usage, and source-block move/update checks passed.');

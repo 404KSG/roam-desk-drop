@@ -1,9 +1,9 @@
 export function createFakeRoam() {
   const records = new Map([
-    ['desk-user-one', { uid: 'desk-user-one', title: '工作台（已改名）', children: [] }],
+    ['desk-user-one', { uid: 'desk-user-one', title: 'Worksurface (renamed)', children: [] }],
     ['page00001', { uid: 'page00001', title: 'Daily Notes', children: ['block0001'] }],
-    ['block0001', { uid: 'block0001', string: '原始内容', parent: 'page00001', children: ['child0001'], edited: 1 }],
-    ['child0001', { uid: 'child0001', string: '原子块', parent: 'block0001', children: [], edited: 1 }],
+    ['block0001', { uid: 'block0001', string: 'Original content', parent: 'page00001', children: ['child0001'], edited: 1 }],
+    ['child0001', { uid: 'child0001', string: 'Original child block', parent: 'block0001', children: [], edited: 1 }],
   ]);
   const users = new Map([['user-one', { desk: 'desk-user-one' }]]);
   let currentUser = 'user-one', nextId = 0, clock = 10;

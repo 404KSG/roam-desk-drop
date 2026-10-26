@@ -17,7 +17,7 @@ export function createRoamDeskAdapter({ getAPI }) {
   function api() {
     const value = getAPI?.();
     if (!value?.data?.pull || !value?.data?.block?.create || !value?.user?.uid || !value?.util?.generateUID) {
-      throw new DeskDropError('UNSUPPORTED_API', '当前 Roam 版本缺少需要的公开接口。');
+      throw new DeskDropError('UNSUPPORTED_API', 'This Roam version does not expose the required public APIs.');
     }
     return value;
   }
@@ -26,13 +26,13 @@ export function createRoamDeskAdapter({ getAPI }) {
     const value = api();
     const context = { graphName: value.graph?.name, graphType: value.graph?.type, userUid: value.user.uid() };
     if (!context.graphName || !context.graphType || !context.userUid) {
-      throw new DeskDropError('NO_CONTEXT', '请在已登录的 Roam 图谱中使用。');
+      throw new DeskDropError('NO_CONTEXT', 'Sign in and open a Roam graph to use Desk Drop.');
     }
     return Object.freeze(context);
   }
 
   function assertContext(context) {
-    if (!sameContext(getContext(), context)) throw new DeskDropError('CONTEXT_CHANGED', '图谱或用户已改变，操作已停止；如刚松手，请回原图谱核对结果。');
+    if (!sameContext(getContext(), context)) throw new DeskDropError('CONTEXT_CHANGED', 'The graph or user changed. Operation stopped; check the original graph if you just dropped a block.');
   }
 
   async function readBlock(uid) {
@@ -54,12 +54,12 @@ export function createRoamDeskAdapter({ getAPI }) {
     assertContext(context);
     const uid = field(user, 'user/desk-page');
     if (typeof uid !== 'string' || !uid) {
-      throw new DeskDropError('DESK_UNBOUND', '请先打开一次原生 Desk，再尝试拖入。');
+      throw new DeskDropError('DESK_UNBOUND', 'Open native Desk once before dropping a block.');
     }
     const page = await api().data.pull(DESK, [':block/uid', uid]);
     assertContext(context);
     if (field(page, 'block/uid') !== uid || typeof field(page, 'node/title') !== 'string') {
-      throw new DeskDropError('DESK_MISSING', 'Desk 绑定的页面已失效，请先通过原生 Desk 恢复。');
+      throw new DeskDropError('DESK_MISSING', 'The bound Desk page is missing or invalid. Recover it through native Desk first.');
     }
     return {
       uid,
@@ -70,12 +70,12 @@ export function createRoamDeskAdapter({ getAPI }) {
   return {
     getContext, assertContext, readBlock, resolveDesk,
     isDeskPage: async (uid) => {
-      if (typeof api().data.q !== 'function') throw new DeskDropError('UNSUPPORTED_API', '当前 Roam 缺少安全校验所需的查询接口。');
+      if (typeof api().data.q !== 'function') throw new DeskDropError('UNSUPPORTED_API', 'This Roam version lacks the query API required for safety checks.');
       return (await api().data.q('[:find ?u . :in $ ?pageUid :where [?u :user/desk-page ?pageUid]]', uid)) != null;
     },
     generateUID: () => api().util.generateUID(),
     deleteEntry: (uid) => {
-      if (typeof api().data.block.delete !== 'function') throw new DeskDropError('UNSUPPORTED_API', '当前 Roam 缺少安全移除入口的接口。');
+      if (typeof api().data.block.delete !== 'function') throw new DeskDropError('UNSUPPORTED_API', 'This Roam version lacks the API required to remove an entry safely.');
       return api().data.block.delete({ block: { uid } });
     },
     createEntry: ({ deskUid, uid, string }) => api().data.block.create({
