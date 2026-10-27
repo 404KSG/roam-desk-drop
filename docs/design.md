@@ -9,7 +9,7 @@ Decision confirmed on October 26, 2026: dropping onto Desk adds a native embed. 
 - Create `{{embed-path: ((uid)) closed}}` at the top of Desk. Do not add another entry when a matching embed or embed-path entry already exists.
 - Preserve the source UID, text, parent, order, and children. Do not move or update the source.
 - Preserve the native Desk click behavior. Do not navigate automatically or write to the clipboard after capture.
-- Clicking the original Desk row opens native Desk. Inline Undo may remove only an entry created by this instance that has not been changed, referenced, or given children. Do not call global Undo.
+- Clicking the original Desk row opens native Desk. Inline Undo checks the receipt-owned entry's text, edit time, parent, children, and backlinks. It refuses changed, referenced, or child-bearing entries and never calls global Undo.
 - Keep interaction feedback local to the Desk row, with no bottom-right toast or full-row instructional text. See [quiet interaction design](quiet-interaction.md) for the visual contract and sources.
 
 ## Test interfaces
@@ -36,4 +36,38 @@ Sources:
 - https://roamresearch.com/js/compiled/main.js
 - https://roamresearch.com/js/compiled/route-app.js
 
-Deduplication is local to the current browser instance, not a distributed atomic guarantee. Read back uncertain writes before retrying; do not create again blindly.
+## Data and lifecycle limits
+
+- Missing or invalid bindings must be initialized or recovered through native Roam Desk. The extension does not create a replacement or alter the binding.
+- Writes use a pre-generated UID and readback. If completion cannot be confirmed, repeat attempts for that block are paused for the current instance rather than blindly retried.
+- Queueing and deduplication are instance-local, not distributed transactions or atomic conditional deletes.
+- Direct Desk self-embedding and blocks already inside a Desk page are rejected. Global cycle detection across dynamic renderers or cross-block embeds is not guaranteed.
+- Graph changes use Roam's own synchronization and permissions. A personal Desk is not a separate privacy boundary. The extension adds no AI service, API key, analytics, or extra network requests.
+- Unloading removes listeners, highlights, feedback, the live region, and injected styles. Native Desk entries remain. Already submitted SDK writes cannot be forcibly canceled.
+
+## Development
+
+Node.js 20+ is required. Tests use built-in Node modules; building uses esbuild 0.28.1 from development dependencies or an existing executable.
+
+```bash
+npm test
+ESBUILD_BIN=/absolute/path/to/esbuild npm run build
+npm run check
+npm run fixture
+```
+
+The build does not install dependencies automatically. The repository includes the prebuilt `extension.js`, so Depot does not need a root `build.sh`.
+
+Open `http://127.0.0.1:4381/` for source tests or `http://127.0.0.1:4381/?bundle=1` for bundle tests. Focus the page before running integration checks: background documents can miss real focus/blur behavior. The fixture modifies in-memory data only and does not connect to a real graph.
+
+`extension.js` is a Roam Depot ES module, not a plain `roam/js` snippet. Do not paste it into `roam/css`.
+
+### Code map
+
+- `src/desk-capture.js`: validation, deduplication, readback, and guarded Undo.
+- `src/roam-adapter.js`: public SDK calls and Desk compatibility details.
+- `src/drop-payload.js`: native drag-payload validation.
+- `src/runtime.js` and `src/ui.js`: target handling, feedback, and lifecycle cleanup.
+- `test/fixtures/`: isolated in-memory browser harness.
+
+[Interaction details](quiet-interaction.md) · [Verification and remaining coverage](verification.md)

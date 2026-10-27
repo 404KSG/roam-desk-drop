@@ -9,6 +9,7 @@
 - Add regression coverage for cursor permissions, unchanged native gestures, background-only decoration, and theme precedence.
 - Add a privacy-redacted, author-recorded desktop GIF and a reduced-motion static fallback to the README. Prepare the existing Depot submission for formal maintainer review without changing runtime JavaScript.
 - Add the author-approved MIT license, package metadata, and README license notice. Third-party demonstration content retains its owners' rights.
+- Shorten the README to the demo, basic use, and scope; move implementation safeguards and development instructions to the technical documentation. Runtime behavior is unchanged.
 
 ## 0.1.2 - Quiet interaction draft update
 
