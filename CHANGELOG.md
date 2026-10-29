@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - Sidebar page destinations
+
+- Extend collection to Daily Notes, native Desk, and starred pages in the left sidebar. Daily Notes uses today's local date; starred pages use their linked page identity.
+- Keep the same native embed and source hierarchy. Deduplicate independently per destination and reject captures into the source page itself.
+- Support bullet dragging while a block's editor has a cursor, with a pointer fallback, text preview, and grabbing cursor for the native client's suppressed drag setup.
+- Keep the hover plus; show a green success check in exactly the same slot for approximately 900ms, including while hovered.
+- Remove inline Undo, receipts, and the entry-delete action.
+- Freeze the Daily Notes date before queueing; check cancellation during DNP resolution before creating a missing page.
+- Preserve shortcut reference counts, native navigation, modifier gestures, cancellation, and unload cleanup.
+- Add destination, DNP, edited-block, pointer/native interaction, feedback, and lifecycle regression coverage. Keep Depot PR #1511 in Draft for continued review.
+
 ## 0.1.3 - Copy feedback and background-only target
 
 - Prefer native `copy` feedback for ordinary accepted drags instead of the macOS link/alias cursor. The data operation remains a native embed, not a source-text copy or move.
@@ -36,4 +47,4 @@
 - Leave modifier-key drags and drops outside Desk to the existing handlers.
 - Clean up listeners and transient UI on unload.
 
-Validation includes automated tests, an in-memory browser fixture, and an author-recorded demonstration of the basic desktop drop/card path. Structured live-graph source/Undo checks, cross-client and failure-mode coverage, and coexistence with installed drag extensions remain follow-up work.
+Validation uses automated tests and an in-memory browser fixture. An earlier author-recorded demonstration covers the Desk-only interaction from 0.1.3. Live cross-client and synchronization checks, concurrent devices, and full coexistence with installed drag extensions remain follow-up work.

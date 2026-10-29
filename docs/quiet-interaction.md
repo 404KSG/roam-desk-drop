@@ -1,62 +1,44 @@
-# Quiet Desk interaction
+# Quiet sidebar interaction
 
-## Brief
+Keep collection feedback in the destination row. Preserve native page navigation, the original label and icon, and the sidebar's visual rhythm.
 
-Reduce English copy during dragging, use a restrained Linear-inspired interaction, and remove bottom-right notifications. Preserve native Desk behavior and source-block safety. The extension is submitted for Roam Depot maintainer review. Submission is separate from production installation and Marketplace availability.
-
-## First-party references
-
-- [A calmer interface for a product in motion](https://linear.app/now/behind-the-latest-design-refresh), March 12, 2026: Linear describes reducing the visual weight of navigation, using fewer and smaller icons, softening borders, and moving toward less saturated gray palettes.
-- [Personalized sidebar](https://linear.app/changelog/2024-12-18-personalized-sidebar), December 18, 2024: Linear documents direct sidebar reordering with drag and drop, optional notification dots, and hiding less-used navigation items.
-
-Both pages were read directly. These sources support restraint and local, direct manipulation. They do not establish that Linear uses this exact Desk-like drop interaction or avoids all toasts. The no-toast requirement comes from the user.
-
-## Alternatives and choice
-
-1. **Local icon feedback (selected):** preserve the destination label; show only the current state beside it. A user can confirm the result without looking elsewhere.
-2. **Completely silent capture:** visually simpler, but provides no assurance that a drop succeeded or failed.
-3. **A smaller floating confirmation:** still pulls attention away from Desk and conflicts with the no-toast request.
+```text
+Idle       [native icon] Page name
+Drop       [native icon] Page name           +
+Writing    [native icon] Page name           spinner
+Added      [native icon] Page name           green check
+Existing   [native icon] Page name           green check
+Error      [native icon] Page name           warning
+```
 
 ## Visual contract
 
-```text
-Idle       [native icon] Desk
-Drop       [native icon] Desk           +
-Writing    [native icon] Desk           spinner
-Added      [native icon] Desk           check [Undo on hover/focus]
-Existing   [native icon] Desk           check
-Error      [native icon] Desk           warning
-```
-
-- Preserve native icon, label, foreground, font, row height, and adjacent navigation geometry. Do not swap the word Desk for instructions.
-- Use a 6px radius and a 7% foreground-derived fill for the active drop target, without an inset frame or shadow. The narrowly scoped active-Desk selector outranks important sidebar hover paint so the tint remains visible; other rows keep their original styles.
-- Use 14px line icons with a 1.5px stroke. Use the native font for the 11px Undo action. This is a navigation detail, not an opportunity to introduce a second typeface or a new application theme.
-- The neutral reference palette is ink `#262626`, muted `#737373`, line `#ececee`, and surface `#f6f6f7`. Actual row colors come from the host. Warning uses `#a87936`, overridable through `--rr-desk-drop-warning`.
-- No shadows, extra cards, global borders, label motion, or bottom-right panel. The target background transitions in 100ms; leaving restores the host's normal paint and transition. Reduced-motion preferences disable this transition, the Undo reveal transition, and the spinner animation.
+- The plus, spinner, check, and warning occupy the same right-hand slot. No success icon appears before the page label.
+- Success is green and lasts approximately 900ms, including while hovered. There is no Undo button or hover extension of the timer.
+- Keep the 14px line icon and a faint foreground-derived target tint, with a 6px radius and no inset frame or shadow. Background transition: 100ms.
+- Keep native starred-page reference counts visible and place the feedback slot to their left with a measured gap.
+- Keep original labels, icons, font, foreground, row height, and adjacent navigation geometry. No instructional row text, global toast, label motion, or automatic navigation.
+- Reduced motion disables the target transition and spinner animation.
 
 ## Behavior and accessibility
 
-- Dragging onto Desk adds only an icon and a faint target treatment. Leaving or canceling the drag restores the row.
-- After readback, a check confirms success. A compact Undo action appears on row hover or keyboard focus, with an eight-second idle timeout that pauses on hover/focus. Existing entries never receive Undo.
-- Clicking the original Desk entry remains the navigation action; there is no separate View button. Undo prevents bubbling into native navigation.
-- Failures retain a local warning. Pointer users can inspect the native tooltip; keyboard and screen-reader users receive a focusable warning with the full accessible label. A visually hidden polite live region announces progress and outcomes without adding visible prose.
-- Escape dismisses feedback. It does not cancel an already submitted SDK write. A graph change, newer accepted operation, or unload prevents stale completions from restoring feedback.
-- Only the latest accepted drop owns the visible Undo. Its receipt is still validated by the unchanged capture engine.
-- No source updates, moves, clipboard changes, automatic navigation, analytics, new dependencies, or production-graph writes are introduced by this revision.
+The native row click remains navigation. A bullet drag can collect an ordinary block while its editor has a cursor. The pointer fallback shows a small text preview and a grabbing cursor after the movement threshold; release or cancellation removes both. Grabbing text inside the editor retains selection/editing behavior. Modifiers preserve existing gestures.
 
-## Native cursor feedback
+The row shows pending feedback until readback confirms the entry. A hidden polite live region announces progress, success, duplicate detection, and errors. Errors remain available through a focusable warning with full tooltip and accessible label. Escape dismisses local feedback; it cannot undo an already submitted SDK write.
 
-The reported black curved arrow matches macOS link/alias drag feedback. The previous runtime preferred `dropEffect: link` even when the source permitted an additive copy operation. This is platform cursor feedback, not a Desk-row SVG or a block-reordering marker.
+A newer drag/drop, graph change, or unload prevents older completions from restoring stale feedback. No graph entry is deleted by this extension.
 
-Prefer `copy` for sources permitting copy, including ordinary uninitialized/all drags. Retain `link` only for link-capable sources that do not permit copy. Reject move-only/none/unknown operations; never request `move` merely to change the cursor. Keep other drop targets and modifier gestures unchanged.
+## Cursor permissions
 
-This preference does not copy the source text. The unchanged capture engine still creates only `{{embed-path: ((uid)) closed}}`. The browser and OS choose the cursor artwork; the extension does not hide the pointer or globally suppress native drag indicators.
+Prefer `dropEffect: copy` when the native source permits copy, retain `link` for link-only sources, and reject move-only, none, or unknown permissions. The data operation is always an embed referencing the original, regardless of cursor artwork. The browser and OS choose the native cursor image.
 
 - [MDN: DataTransfer.dropEffect](https://developer.mozilla.org/en-US/docs/Web/API/DataTransfer/dropEffect)
 - [Apple: Pointing devices](https://developer.apple.com/design/human-interface-guidelines/pointing-devices)
 
-Constructed DataTransfer objects do not accept native effect assignments in the test browser. Synthetic integration tests therefore model source permissions and record requested feedback at that boundary; trusted pointer tests separately verify the browser's real drop and drag-end effects.
+Synthetic DataTransfer tests model permissions because constructed transfers can keep native effect fields at `none`. Trusted pointer tests cover actual event behavior separately.
 
 ## Validation boundary
 
-Use real browser events and the compiled bundle against the in-memory fixture. Verify row geometry, native navigation, inline Undo, errors, pending writes, queued operations, graph switches, cleanup, compact and dark styles, and reduced motion. The author-recorded desktop demonstration supplies observational evidence for the basic drop and native-card path. Structured live-graph acceptance and coexistence with installed extensions remain separate verification work.
+The fixture includes native-shaped Desk/Daily Notes rows, ancestor page links, reference counts, ordinary blocks, and an edited textarea block whose native drag setup is suppressed. Check source and bundle, reduced motion, real mouse gestures, duplicate prevention, pending/errors, context changes, cancellation, and unload.
+
+Read-only live-client inspection establishes DOM and native-handler compatibility. Automated graph-write acceptance uses only the isolated in-memory fixture. Live cross-client, synchronization, concurrent-device, and full extension-coexistence checks remain separate work.

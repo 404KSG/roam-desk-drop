@@ -1,6 +1,7 @@
-const ROW = '.roam-app > .roam-sidebar-container .rm-left-sidebar__desk[data-rr-desk-drop]';
-// Outrank important sidebar hover paint only while this exact Desk row accepts a drop.
-const READY_ROW = '.roam-body .roam-app > .roam-sidebar-container .roam-sidebar-content div.log-button.rm-left-sidebar__desk[data-rr-desk-drop="ready"]';
+const MARK = ':is(div.log-button.rm-left-sidebar__daily-notes, div.log-button.rm-left-sidebar__desk, .starred-pages .page)';
+const ROW = `.roam-app > .roam-sidebar-container ${MARK}[data-rr-desk-drop]`;
+// Outrank important sidebar hover paint only while this exact row accepts a drop.
+const READY_ROW = `.roam-body .roam-app > .roam-sidebar-container .roam-sidebar-content ${MARK}[data-rr-desk-drop="ready"]`;
 const CSS = `
 ${ROW} { position:relative; }
 ${READY_ROW} {
@@ -8,21 +9,21 @@ ${READY_ROW} {
   border-radius:6px;
   transition:background-color 100ms ease;
 }
-.rr-desk-drop-accessory { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:6px; height:20px; color:inherit; pointer-events:none; }
+.rr-desk-drop-accessory { position:absolute; top:50%; transform:translateY(-50%); display:flex; align-items:center; height:20px; color:inherit; pointer-events:none; }
 .rr-desk-drop-icon { display:block; width:14px; height:14px; flex:none; opacity:.8; }
+.rr-desk-drop-success { color:#1f8a4c; opacity:1; }
 .rr-desk-drop-error { color:var(--rr-desk-drop-warning,#a87936); pointer-events:auto; cursor:help; border-radius:3px; }
-.rr-desk-drop-undo { all:unset; box-sizing:border-box; padding:2px 3px; border-radius:3px; color:inherit; font:inherit; font-size:11px; line-height:16px; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 100ms ease; }
-${ROW}:hover .rr-desk-drop-undo, ${ROW}:focus-within .rr-desk-drop-undo { opacity:.8; pointer-events:auto; }
-${ROW} .rr-desk-drop-undo:hover { opacity:1; text-decoration:underline; text-underline-offset:3px; }
-.rr-desk-drop-undo:focus-visible, .rr-desk-drop-error:focus-visible { outline:2px solid currentColor; outline-offset:2px; opacity:1; }
+.rr-desk-drop-error:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
 .rr-desk-drop-spinner { display:block; box-sizing:border-box; width:13px; height:13px; border:1.5px solid currentColor; border-right-color:transparent; border-radius:50%; opacity:.65; animation:rr-desk-drop-spin 800ms linear infinite; }
+.rr-desk-drop-pointer-ghost { position:fixed; left:0; top:0; max-width:240px; padding:4px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:12px/20px system-ui; color:CanvasText; background:Canvas; border:1px solid color-mix(in srgb,currentColor 18%,transparent); border-radius:4px; opacity:.85; pointer-events:none; z-index:2147483647; }
+html[data-rr-desk-drop-pointer] * { cursor:grabbing !important; }
 .rr-desk-drop-live { position:absolute !important; top:0 !important; left:0 !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip-path:inset(50%) !important; white-space:nowrap !important; border:0 !important; }
 @keyframes rr-desk-drop-spin { to { transform:rotate(360deg); } }
-@media (prefers-reduced-motion:reduce) { ${READY_ROW} { transition:none; } .rr-desk-drop-spinner { animation:none; } .rr-desk-drop-undo { transition:none; } }
+@media (prefers-reduced-motion:reduce) { ${READY_ROW} { transition:none; } .rr-desk-drop-spinner { animation:none; } }
 `;
 
-export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
-  let style, live, dragRow, feedback, painted, mounted = false;
+export function createDeskDropUI({ documentRef, windowRef }) {
+  let style, live, dragRow, feedback, painted, pointerGhost, pointerMarker, mounted = false;
   const restore = (node, name, oldValue, ownValue) => {
     if (node.getAttribute(name) !== ownValue) return;
     if (oldValue === null) node.removeAttribute(name);
@@ -31,10 +32,24 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
   function clearPaint() {
     if (!painted) return;
     const { row, accessory, marker, busy, state } = painted;
+    painted = null;
     accessory.remove();
     restore(row, 'data-rr-desk-drop', marker, state);
     if (state === 'pending') restore(row, 'aria-busy', busy, 'true');
     painted = null;
+  }
+  function trailingCount(row) {
+    return row.querySelector(':scope > .rr-sidebar-ref-count')
+      || [...row.children].find(child => child.classList?.contains('rr-sidebar-ref-count') || /\bref-count\b/.test(String(child.className || '')));
+  }
+  function slotRight(row) {
+    const count = trailingCount(row);
+    if (!count) return 10;
+    const rowRect = row.getBoundingClientRect();
+    const countRect = count.getBoundingClientRect();
+    // Wide labels such as 99+ stay to the right of the icon. The gap is measured, not a fixed inset.
+    if (!countRect.width && !countRect.height) return 10;
+    return Math.max(10, Math.ceil(rowRect.right - countRect.left + 8));
   }
   function icon(state) {
     if (state === 'pending') {
@@ -43,7 +58,8 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       return spinner;
     }
     const svg = documentRef.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'rr-desk-drop-icon'); svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('class', state === 'added' || state === 'existing' ? 'rr-desk-drop-icon rr-desk-drop-success' : 'rr-desk-drop-icon');
+    svg.setAttribute('viewBox', '0 0 16 16');
     svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
     svg.setAttribute('stroke-width', '1.5'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
     svg.setAttribute('aria-hidden', 'true');
@@ -55,8 +71,10 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
     clearPaint();
     const model = dragRow ? { row: dragRow, state: 'ready' } : feedback;
     if (!mounted || !model?.row?.isConnected) return;
-    const { row } = model, state = model.running ? 'pending' : model.state;
-    const accessory = documentRef.createElement('span'); accessory.className = 'rr-desk-drop-accessory';
+    const { row } = model, state = model.state;
+    const accessory = documentRef.createElement('span');
+    accessory.className = 'rr-desk-drop-accessory';
+    accessory.style.right = `${slotRight(row)}px`;
     painted = { row, accessory, marker: row.getAttribute('data-rr-desk-drop'), busy: row.getAttribute('aria-busy'), state };
     row.setAttribute('data-rr-desk-drop', state);
     if (state === 'pending') row.setAttribute('aria-busy', 'true');
@@ -68,24 +86,27 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       status.setAttribute('role', 'img'); status.setAttribute('aria-label', model.message);
     }
     accessory.appendChild(status);
-    if (!dragRow && model.undo && !model.running) {
-      const undo = documentRef.createElement('button'); undo.type = 'button';
-      undo.className = 'rr-desk-drop-undo'; undo.dataset.rrDeskDropAction = 'undo';
-      undo.textContent = 'Undo'; undo.title = 'Undo last add to Desk'; undo.setAttribute('aria-label', undo.title);
-      undo.addEventListener('click', async event => {
-        event.preventDefault(); event.stopPropagation();
-        if (feedback !== model || model.running) return;
-        model.pause(); model.running = true; paint();
-        live.textContent = 'Removing Desk entry.';
-        try { await model.undo(); }
-        catch (error) { if (mounted && feedback === model) onActionError?.(error, row); }
-        finally {
-          if (mounted && feedback === model) { model.running = false; paint(); model.arm(); }
-        }
-      });
-      accessory.appendChild(undo);
-    }
     row.appendChild(accessory);
+  }
+  function clearPointerDrag() {
+    if (!pointerGhost) return;
+    pointerGhost.remove(); pointerGhost = null;
+    restore(documentRef.documentElement, 'data-rr-desk-drop-pointer', pointerMarker, 'true');
+  }
+  function movePointerDrag(bullet, x, y) {
+    if (!mounted) return;
+    if (!pointerGhost) {
+      const row = bullet.closest('.rm-block-main,.roam-block-container');
+      pointerGhost = documentRef.createElement('div');
+      pointerGhost.className = 'rr-desk-drop-pointer-ghost'; pointerGhost.setAttribute('aria-hidden', 'true');
+      pointerGhost.textContent = (row?.querySelector('textarea')?.value || row?.querySelector('.rm-block-text')?.textContent || 'Block').trim().slice(0, 120);
+      pointerMarker = documentRef.documentElement.getAttribute('data-rr-desk-drop-pointer');
+      documentRef.documentElement.setAttribute('data-rr-desk-drop-pointer', 'true');
+      documentRef.body.appendChild(pointerGhost);
+    }
+    const left = Math.max(0, Math.min(x + 14, windowRef.innerWidth - pointerGhost.offsetWidth - 4));
+    const top = Math.max(0, Math.min(y + 14, windowRef.innerHeight - pointerGhost.offsetHeight - 4));
+    pointerGhost.style.transform = `translate(${left}px,${top}px)`;
   }
   function clearHighlight() {
     // Removing a focused accessory dispatches blur. Without an active drag,
@@ -113,27 +134,21 @@ export function createDeskDropUI({ documentRef, windowRef, onActionError }) {
       dragRow = target; paint();
     },
     clearHighlight,
+    clearPointerDrag, movePointerDrag,
     activeRow: () => dragRow,
     clearFeedback,
-    show(message, { target, state = 'added', undo, persistent = false } = {}) {
+    show(message, { target, state = 'added', persistent = false } = {}) {
       if (!mounted || !target?.isConnected) return;
       clearFeedback();
       let timer;
-      const current = { row: target, state, message, undo };
-      current.pause = () => windowRef.clearTimeout(timer);
-      current.arm = () => {
-        current.pause();
-        if (persistent || current.running || target.matches(':hover') || target.contains(documentRef.activeElement)) return;
-        timer = windowRef.setTimeout(() => { if (feedback === current) clearFeedback(); }, undo ? 8000 : 1800);
-      };
-      const focusOut = event => { if (!target.contains(event.relatedTarget)) current.arm(); };
-      const listeners = [['mouseenter', current.pause], ['mouseleave', current.arm], ['focusin', current.pause], ['focusout', focusOut]];
-      current.cleanup = () => { current.pause(); for (const [type, listener] of listeners) target.removeEventListener(type, listener); };
-      for (const [type, listener] of listeners) target.addEventListener(type, listener);
-      feedback = current; live.textContent = message; paint(); current.arm();
+      const current = { row: target, state, message };
+      current.cleanup = () => windowRef.clearTimeout(timer);
+      feedback = current; live.textContent = message; paint();
+      // Success leaves on its own, including while the pointer is still over the row.
+      if (!persistent) timer = windowRef.setTimeout(() => { if (feedback === current) clearFeedback(); }, 900);
     },
     dispose() {
-      mounted = false; dragRow = null; clearFeedback(); clearPaint();
+      mounted = false; dragRow = null; clearPointerDrag(); clearFeedback(); clearPaint();
       style?.remove(); live?.remove(); style = null; live = null;
     },
   };

@@ -1,53 +1,45 @@
-# Desk Drop 0.1: confirmed baseline
+# Sidebar collection design
 
-Decision confirmed on October 26, 2026: dropping onto Desk adds a native embed. The original block stays in place; its text is not copied.
+Desk Drop 0.2 extends the existing native-embed collection action to page destinations in Roam's left sidebar.
 
-## Scope
+## Destinations
 
-- An independent Roam Depot extension for dragging one ordinary top-level block from the main or right-sidebar outline onto the existing Desk row.
-- Resolve the current user's `:user/desk-page` binding. Do not guess the page name, create a Desk, or modify the binding.
-- Create `{{embed-path: ((uid)) closed}}` at the top of Desk. Do not add another entry when a matching embed or embed-path entry already exists.
-- Preserve the source UID, text, parent, order, and children. Do not move or update the source.
-- Preserve the native Desk click behavior. Do not navigate automatically or write to the clipboard after capture.
-- Clicking the original Desk row opens native Desk. Inline Undo checks the receipt-owned entry's text, edit time, parent, children, and backlinks. It refuses changed, referenced, or child-bearing entries and never calls global Undo.
-- Keep interaction feedback local to the Desk row, with no bottom-right toast or full-row instructional text. See [quiet interaction design](quiet-interaction.md) for the visual contract and sources.
+| Sidebar row | Destination |
+|---|---|
+| Daily Notes | Today's daily note page, using Roam's local-date utilities at drop time |
+| Desk | The current user's `:user/desk-page` binding, including a renamed Desk |
+| Starred page | The page UID in the shortcut's native link |
 
-## Test interfaces
+Resolve identities from native selectors and links, then verify the target through `roamAlphaAPI.data.pull`. Never use the row's whole visible text as a page title: themes or other extensions can append counts. Functional navigation, shortcut headings, foreign graph links, and links to blocks are not page destinations. Native Desk must already be initialized. Only Daily Notes may create a missing page, using the public page-create API.
 
-1. `DeskCapture.capture` and `undo`: connect the real adapter to a simulated Roam SDK and check observable graph results and source preservation.
-2. `createDeskDropRuntime.start/stop`: exercise browser events to verify the drop target, native/modifier drag pass-through, cancellation, and unload cleanup.
-3. Roam SDK adapter: mock only the external SDK, not this project's modules. Check actual call shapes and error handling.
+A drop freezes its destination before joining the write queue. Entries use `{{embed-path: ((uid)) closed}}` at the top. Existing matching embed/embed-path entries are deduplicated per target page. The source UID, text, parent, order, and children remain unchanged. A block already on the destination page is rejected. A Desk-owned block may be collected into another page.
 
-Start with a failing test, implement that behavior, and add safety cases incrementally. Browser integration tests use a local in-memory graph fixture, not writes to a production Roam graph.
+## Drag sources
 
-## Out of scope
+Support one ordinary block from the main or right-sidebar outline, in the same graph and window. Native drag payloads are `roam/block-uid-list-only-parents`, `roam/block-uid-list`, and `roam/roam-uri-list`; read protected data only on drop. Reject ambiguous reference/query/embed views, multiple top-level blocks, external input, modifiers, and cross-graph/user changes.
 
-Multiple top-level blocks; web-page, file, or cross-window drops; cross-graph capture; automatic sidebar expansion; mobile touch gestures; automatic classification; AI; automatic production installation; and automatic Marketplace release. Linked-reference, query, and embed surfaces are not handled in the first version because their source identity needs separate validation.
+Roam's current bullet drag-start handler skips native drag setup while the block is being edited. A pointer fallback starts from the bullet, after a movement threshold, to cover that state. Resolve source identity from the block container or its own `block-input-*` element. Editor text itself keeps native editing and selection. Pointer and native event streams must produce a single capture. Escape, pointer cancellation, blur, navigation, and unload clear the gesture.
 
-## Compatibility basis
+## Write safeguards
 
-The native Desk entry format and `:user/desk-page` binding were inspected in client `0.13.13-2e4c3c7d`. They are not a published, stable Desk API contract. Validate them in a separate test graph before connecting the extension to a production graph.
+- Validate source and destination before creating an entry.
+- Serialize instance-local writes and use a pre-generated entry UID.
+- Read the entry back and verify its UID, content, and parent before reporting success.
+- If a write outcome is uncertain, pause further attempts for that source/destination pair rather than blindly retrying.
+- Recheck graph/user context around asynchronous SDK calls. An already submitted write cannot be canceled forcibly.
+- Provide no Undo/delete action. Existing entries remain native Roam blocks after unload.
 
-Official drag payloads: `roam/block-uid-list-only-parents`, `roam/block-uid-list`, and `roam/roam-uri-list`. Use public `roamAlphaAPI.data.block.create/delete`, `data.pull/q`, `user.uid()`, `graph`, and `util.generateUID()`. Do not call minified internal functions.
+This is not a distributed transaction. Concurrent devices or instances may still race. Rejecting same-page captures does not provide global cycle detection across other dynamic embeds. A personal Desk is not a separate privacy boundary.
 
-Sources:
+## Interface and lifecycle
 
-- https://roamdocs.fyi/developer-documentation/llms-full.txt
-- https://roamresearch.com/js/compiled/main.js
-- https://roamresearch.com/js/compiled/route-app.js
+Keep feedback local to the destination row: plus on accepted hover, spinner while writing, a green check in the same slot for approximately 900ms, and a focusable warning on error. Success expires even while the pointer stays over the row. Preserve native navigation, labels, row geometry, and shortcut counts. See [interaction details](quiet-interaction.md).
 
-## Data and lifecycle limits
-
-- Missing or invalid bindings must be initialized or recovered through native Roam Desk. The extension does not create a replacement or alter the binding.
-- Writes use a pre-generated UID and readback. If completion cannot be confirmed, repeat attempts for that block are paused for the current instance rather than blindly retried.
-- Queueing and deduplication are instance-local, not distributed transactions or atomic conditional deletes.
-- Direct Desk self-embedding and blocks already inside a Desk page are rejected. Global cycle detection across dynamic renderers or cross-block embeds is not guaranteed.
-- Graph changes use Roam's own synchronization and permissions. A personal Desk is not a separate privacy boundary. The extension adds no AI service, API key, analytics, or extra network requests.
-- Unloading removes listeners, highlights, feedback, the live region, and injected styles. Native Desk entries remain. Already submitted SDK writes cannot be forcibly canceled.
+Unload removes listeners, drag state, temporary attributes, feedback, live region, and injected styles. No clipboard changes, automatic navigation, analytics, network calls, source moves/updates/deletes, or dependencies are introduced.
 
 ## Development
 
-Node.js 20+ is required. Tests use built-in Node modules; building uses esbuild 0.28.1 from development dependencies or an existing executable.
+Node.js 20+ is required. Tests use built-in modules. The build uses an existing esbuild executable and does not install dependencies automatically.
 
 ```bash
 npm test
@@ -56,18 +48,16 @@ npm run check
 npm run fixture
 ```
 
-The build does not install dependencies automatically. The repository includes the prebuilt `extension.js`, so Depot does not need a root `build.sh`.
+Open `http://127.0.0.1:4381/` for source tests or `http://127.0.0.1:4381/?bundle=1` for bundle tests. Focus the page before running integration checks. The fixture uses an in-memory SDK and never connects to a real graph.
 
-Open `http://127.0.0.1:4381/` for source tests or `http://127.0.0.1:4381/?bundle=1` for bundle tests. Focus the page before running integration checks: background documents can miss real focus/blur behavior. The fixture modifies in-memory data only and does not connect to a real graph.
+`extension.js` is a Depot ES module, not a plain `roam/js` snippet or CSS. Depot uses the committed bundle; no root `build.sh` is needed.
 
-`extension.js` is a Roam Depot ES module, not a plain `roam/js` snippet. Do not paste it into `roam/css`.
+## Compatibility evidence
 
-### Code map
+Read-only inspection on October 29, 2026 confirmed `.rm-left-sidebar__daily-notes`, `.rm-left-sidebar__desk`, and `.starred-pages > a[href] > .page` in the live client. Shortcut reference counts may be supplied by another extension as `.rr-sidebar-ref-count`. Current client source also confirms that editing state bypasses native bullet drag setup. These DOM details and the Desk binding are compatibility dependencies, not a stable public UI API.
 
-- `src/desk-capture.js`: validation, deduplication, readback, and guarded Undo.
-- `src/roam-adapter.js`: public SDK calls and Desk compatibility details.
-- `src/drop-payload.js`: native drag-payload validation.
-- `src/runtime.js` and `src/ui.js`: target handling, feedback, and lifecycle cleanup.
-- `test/fixtures/`: isolated in-memory browser harness.
+- [Roam developer documentation](https://roamdocs.fyi/developer-documentation/llms-full.txt)
+- [Current client source](https://roamresearch.com/js/compiled/route-app.js)
+- [Verification and limits](verification.md)
 
-[Interaction details](quiet-interaction.md) · [Verification and remaining coverage](verification.md)
+Multiple blocks, cross-window input, touch/mobile dragging, automatic sidebar expansion, classification, AI, production installation, and Marketplace publication are outside this change.

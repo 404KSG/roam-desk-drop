@@ -1,29 +1,29 @@
 # Desk Drop
 
-Drag a block onto **Desk** in Roam's sidebar to add a live embed. The original stays in place.
+Drag a block onto **Daily Notes**, **Desk**, or a **starred page** in Roam's left sidebar to add a live embed. The original stays in place.
 
-<picture>
-  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png">
-  <img src="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo.gif" alt="Dragging a block onto Desk, then opening its new card." width="1280">
-</picture>
+![Edited-block drag and green success check in the in-memory sandbox](assets/sidebar-drop-sandbox.png)
 
-Recorded in Roam desktop; personal details hidden. [Static preview](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png).
+In-memory sandbox demonstration; this image does not show a production graph.
 
 ## Use
 
-1. Open Roam's native Desk once to initialize it.
-2. Drag a block's bullet onto **Desk**, without modifier keys.
-3. Hover the row for **Undo**, or click **Desk** to view it.
+1. Grab a block's bullet in the main outline or right sidebar. This also works while its editor has a cursor.
+2. Drag onto a supported sidebar row, without modifier keys. A **+** marks the destination.
+3. Release to collect the block. A brief **green check** confirms it; click the page normally to view the result.
 
-Repeated drops don't add duplicates. Undo only removes the new Desk entry, never the original.
+**Daily Notes** collects into today's daily note page, even when you're viewing another day. **Desk** uses your native Desk binding; open Desk once to initialize it. **Starred pages** collect into the linked page.
+
+Entries appear at the top. Repeated drops onto the same destination don't add duplicates. The same block can be collected into different pages. There is no inline Undo action; entries remain ordinary Roam blocks.
 
 ## Scope
 
-One block at a time from the main or right-sidebar outline, within the same graph and window. Selections, pages, external drops, and reference/query/embed views aren't supported.
+One block at a time, within the same graph and window. Drag by the bullet; dragging editor text keeps its normal behavior. Modifier gestures and other drop targets retain their native behavior. Whole pages, multi-block selections, external drops, and reference/query/embed views aren't supported. Functional sidebar items such as Roam Depot aren't drop destinations.
 
-[Roam Depot review](https://github.com/Roam-Research/roam-depot/pull/1511) is pending; broader compatibility checks remain open.
-PR preview: `404KSG+roam-desk-drop+1511`.
+The extension creates `{{embed-path: ((uid)) closed}}` entries and never moves, updates, or deletes the source block. Capturing into its own source page is rejected.
 
-[Technical details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/design.md) · [Verification](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) · [MIT license](https://github.com/404KSG/roam-desk-drop/blob/main/LICENSE)
+[Draft Depot PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511) · PR preview: `404KSG+roam-desk-drop+1511`.
 
-Third-party demo content retains its owners' rights.
+[Technical details](docs/design.md) · [Interaction](docs/quiet-interaction.md) · [Verification and remaining gaps](docs/verification.md) · [MIT license](LICENSE)
+
+Earlier demo assets show the Desk-only interaction from 0.1.3. Third-party demo content retains its owners' rights.
