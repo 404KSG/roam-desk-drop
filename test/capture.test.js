@@ -135,6 +135,27 @@ test('Daily Notes reconciles page-create responses and refuses conflicting title
   });
 });
 
+test('blocks already on the destination are informational results with no writes', async t => {
+  for (const kind of ['page', 'desk', 'daily']) await t.test(kind, async () => {
+    const { fake, capture } = setup();
+    let uid = 'page00001', destination = target(uid);
+    if (kind === 'desk') { uid = 'desk-user-one'; destination = { kind: 'desk' }; }
+    if (kind === 'daily') {
+      uid = fake.api.util.dateToPageUid(new Date()); destination = { kind: 'daily' };
+      fake.records.set(uid, { uid, title: fake.api.util.dateToPageTitle(new Date()), children: [] });
+    }
+    if (kind !== 'page') {
+      fake.records.get('page00001').children = [];
+      fake.records.get(uid).children.push('block0001'); fake.records.get('block0001').parent = uid;
+    }
+    const before = fake.snapshot();
+    const result = await capture.capture({ uids: ['block0001'], origin, destination });
+    assert.equal(result.status, 'existing'); assert.equal(result.reason, 'source-on-page');
+    assert.equal(result.pageUid, uid);
+    assert.deepEqual(fake.snapshot(), before);
+  });
+});
+
 test('invalid sources and destinations produce no graph writes', async t => {
   const cases = [
     { name: 'missing block', uids: ['missing01'] },
@@ -145,7 +166,6 @@ test('invalid sources and destinations produce no graph writes', async t => {
     { name: 'markup injection', uids: ['bad)) closed}}'] },
     { name: 'unbound Desk', prepare: f => { f.users.get('user-one').desk = null; } },
     { name: 'dangling Desk binding', prepare: f => { f.users.get('user-one').desk = 'gone-desk'; } },
-    { name: 'source belongs to destination', destination: target('page00001') },
     { name: 'destination missing', destination: target('gone-page') },
     { name: 'destination is a block', destination: target('child0001') },
     { name: 'invalid destination UID', destination: target('bad))}}') },

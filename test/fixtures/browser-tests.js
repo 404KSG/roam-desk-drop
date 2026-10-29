@@ -84,6 +84,58 @@ async function runTests() {
     assert(children(uid)[0][':block/string'] === '{{embed-path: ((block0001)) closed}}', 'Wrong DNP content');
     assert(fake.records.get('page00001').children.length === 2, 'Source page changed');
   });
+  await check('A block already in today shows a clear informational result without a write', async () => {
+    const row = $('#daily'), uid = fake.api.util.dateToPageUid(new Date());
+    fake.records.set(uid, { uid, title: fake.api.util.dateToPageTitle(new Date()), children: ['block0001'] });
+    fake.records.get('page00001').children = ['edited001']; fake.records.get('block0001').parent = uid;
+    const before = JSON.stringify(fake.snapshot());
+    event('drop', row, begin()); await waitFor(() => row.dataset.rrDeskDrop === 'existing');
+    assert(!row.querySelector('.rr-desk-drop-error,.rr-desk-drop-success'), 'Already-on-page still looks like failure or a new add');
+    const tip = $('.rr-desk-drop-tooltip'), status = row.querySelector('.rr-desk-drop-result');
+    assert(tip?.textContent === "Already in today's note", 'Already-in-today explanation is missing');
+    assert(status.getAttribute('aria-describedby') === tip.id && tip.getAttribute('role') === 'tooltip', 'Explanation is not accessible');
+    assert(!status.hasAttribute('title'), 'A competing native tooltip remains');
+    status.dispatchEvent(new MouseEvent('mouseenter'));
+    assert($('.rr-desk-drop-tooltip').textContent === status.getAttribute('aria-label'), 'Hover did not reveal the full explanation');
+    assert(JSON.stringify(fake.snapshot()) === before, 'Informational result changed the graph');
+    await waitFor(() => !row.hasAttribute('data-rr-desk-drop'), 2400);
+    assert(!$('.rr-desk-drop-tooltip'), 'Informational explanation did not expire');
+  });
+  await check('Duplicate embeds have a neutral icon and an immediate Already added explanation', async () => {
+    const row = $('#build'); event('drop', row, begin()); await waitFor(() => row.dataset.rrDeskDrop === 'added');
+    const addedPath = row.querySelector('path').getAttribute('d');
+    event('drop', row, begin()); await waitFor(() => row.dataset.rrDeskDrop === 'existing');
+    assert($('.rr-desk-drop-tooltip')?.textContent === 'Already added', 'Duplicate explanation is missing');
+    assert(!row.querySelector('.rr-desk-drop-success,.rr-desk-drop-error') && row.querySelector('path').getAttribute('d') !== addedPath, 'Duplicate uses the new-add or error icon');
+    assert(children('target001').length === 1, 'Duplicate created another entry');
+    assert(Math.abs(row.getBoundingClientRect().right - row.querySelector('.rr-desk-drop-accessory').getBoundingClientRect().right - 10) < .5, 'Duplicate moved the right slot');
+    await waitFor(() => !row.hasAttribute('data-rr-desk-drop'), 2400);
+    assert(getComputedStyle(row.querySelector('.rr-sidebar-ref-count')).visibility === 'visible', 'Duplicate expiry did not restore count');
+  });
+  await check('Real errors immediately explain the reason and remain available on focus', async () => {
+    fake.hooks.beforeCreate = () => { throw new Error('Simulated unavailable writer'); };
+    const row = $('#build'); event('drop', row, begin()); await waitFor(() => row.dataset.rrDeskDrop === 'error');
+    const warning = row.querySelector('.rr-desk-drop-error');
+    assert($('.rr-desk-drop-tooltip')?.textContent === warning.getAttribute('aria-label'), 'Error reason is hidden behind an unexplained warning');
+    await waitFor(() => !$('.rr-desk-drop-tooltip'), 3000);
+    assert(row.dataset.rrDeskDrop === 'error', 'Error indicator vanished with the explanation');
+    warning.focus(); assert($('.rr-desk-drop-tooltip')?.textContent === warning.getAttribute('aria-label'), 'Keyboard focus did not reveal the reason');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    assert(!$('.rr-desk-drop-tooltip') && !row.hasAttribute('data-rr-desk-drop'), 'Escape left the error explanation');
+  });
+  await check('New drags, context changes, scroll, and unload remove contextual explanations', async () => {
+    for (const mode of ['drag', 'context', 'scroll', 'unload']) {
+      reset();
+      await fake.api.data.block.create({ location: { 'parent-uid': 'target001', order: 'first' }, block: { uid: 'already01', string: '{{embed-path: ((block0001)) closed}}' } });
+      event('drop', $('#build'), begin()); await waitFor(() => $('#build').dataset.rrDeskDrop === 'existing');
+      assert($('.rr-desk-drop-tooltip'), 'Missing explanation: ' + mode);
+      if (mode === 'drag') begin();
+      if (mode === 'context') { fake.api.graph.name = 'Other graph'; window.dispatchEvent(new Event('hashchange')); }
+      if (mode === 'scroll') document.dispatchEvent(new Event('scroll'));
+      if (mode === 'unload') runtime.stop();
+      assert(!$('.rr-desk-drop-tooltip'), 'Stale explanation remained: ' + mode);
+    }
+  });
   await check('Functional sidebar entries, headings and ordinary targets pass through', async () => {
     for (const selector of ['#depot', '.starred-pages-wrapper .title', '#ordinary-target']) {
       const dt = begin(); dt.dropEffect = 'move';
@@ -294,7 +346,7 @@ async function runTests() {
     release(); await waitFor(() => $('#desk').dataset.rrDeskDrop === 'added'); assert(!$('#desk').hasAttribute('aria-busy'), 'Busy remained');
     reset(); fake.hooks.beforeCreate = () => { throw new Error('Simulated unavailable writer'); };
     event('drop', $('#desk'), begin()); await waitFor(() => $('#desk').dataset.rrDeskDrop === 'error');
-    const warning = $('#desk .rr-desk-drop-error'); assert(warning.title.length > 20 && warning.getAttribute('aria-label') === warning.title, 'Missing error details');
+    const warning = $('#desk .rr-desk-drop-error'); assert(warning.getAttribute('aria-label').length > 20 && !warning.hasAttribute('title'), 'Missing error details or competing native tooltip');
     warning.focus(); assert(document.activeElement === warning, 'Error is not focusable');
   });
   await check('Repeated loads, unload attributes and late writes are cleaned safely', async () => {

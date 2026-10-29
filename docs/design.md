@@ -1,6 +1,6 @@
 # Sidebar collection design
 
-Roam Drop 0.2.1 collects blocks into page destinations in Roam's left sidebar. The extension was previously named Desk Drop.
+Roam Drop 0.2.2 collects blocks into page destinations in Roam's left sidebar. The extension was previously named Desk Drop.
 
 ## Destinations
 
@@ -12,7 +12,7 @@ Roam Drop 0.2.1 collects blocks into page destinations in Roam's left sidebar. T
 
 Resolve identities from native selectors and links, then verify the target through `roamAlphaAPI.data.pull`. Never use the row's whole visible text as a page title: themes or other extensions can append counts. Functional navigation, shortcut headings, foreign graph links, and links to blocks are not page destinations. Native Desk must already be initialized. Only Daily Notes may create a missing page, using the public page-create API.
 
-A drop freezes its destination before joining the write queue. Entries use `{{embed-path: ((uid)) closed}}` at the top. Existing matching embed/embed-path entries are deduplicated per target page. The source UID, text, parent, order, and children remain unchanged. A block already on the destination page is rejected. A Desk-owned block may be collected into another page.
+A drop freezes its destination before joining the write queue. Entries use `{{embed-path: ((uid)) closed}}` at the top. Existing matching embed/embed-path entries are deduplicated per target page. The source UID, text, parent, order, and children remain unchanged. A block already on the destination page returns an informational `existing` result with reason `source-on-page`; it performs no graph write. An existing embed returns `existing` with its entry UID. A Desk-owned block may be collected into another page.
 
 ## Drag sources
 
@@ -33,7 +33,7 @@ This is not a distributed transaction. Concurrent devices or instances may still
 
 ## Interface and lifecycle
 
-Keep feedback local to the destination row in a fixed slot 10px from its right edge: plus on accepted hover, spinner while writing, a green check for approximately 900ms, and a focusable warning on error. Reference counts are temporarily hidden with visibility only while the row contains feedback, preserving their layout and live values. Counts reappear automatically when feedback clears, including counts added during the interaction. Success expires even while hovered. Preserve native navigation, labels, and row geometry. See [interaction details](quiet-interaction.md).
+Keep feedback local to the destination row in a fixed slot 10px from its right edge: plus on accepted hover, spinner while writing, a green check for a new entry, a neutral circled check for existing content, and a warning for an error. New additions clear after 900ms; existing content gets a short explanation for 1.8 seconds. Errors show their full reason immediately, then remain inspectable through hover/focus on the warning. Contextual tooltips are attached to the document body and positioned next to the destination, avoiding sidebar clipping; scroll and resize hide them. Reference counts are temporarily hidden only while the row contains feedback, preserving layout and live values. Preserve native navigation, labels, and row geometry. See [interaction details](quiet-interaction.md).
 
 Unload removes listeners, drag state, temporary attributes, feedback, live region, and injected styles. No clipboard changes, automatic navigation, analytics, network calls, source moves/updates/deletes, or dependencies are introduced.
 

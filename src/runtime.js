@@ -140,10 +140,17 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
           : 'Only Daily Notes, Desk, and pinned pages can receive a block.');
       }
       if (sourceUid && !isSafeUid(sourceUid)) throw new DeskDropError('INVALID_UID', 'Could not safely identify the dragged block.');
-      ui.show(`Adding to ${label}.`, { target, state: 'pending', persistent: true });
+      const place = destination.kind === 'daily' ? "today's Daily Note" : label;
+      ui.show(`Adding to ${place}.`, { target, state: 'pending', persistent: true });
       const result = await capture.capture({ uids, origin, destination, signal: controller.signal });
       if (!loaded || version !== feedbackVersion) return;
-      ui.show(result.status === 'existing' ? `Already on ${label}. No duplicate added.` : `Added to ${label}. Original kept in place.`, { target, state: result.status === 'existing' ? 'existing' : 'added' });
+      if (result.status === 'existing') {
+        const onPage = result.reason === 'source-on-page';
+        const preposition = destination.kind === 'daily' ? 'in' : 'on';
+        const explanation = onPage ? `This block is already ${preposition} ${place}. Nothing was added.` : `An embed of this block is already ${preposition} ${place}. No duplicate was added.`;
+        const hint = onPage ? (destination.kind === 'daily' ? "Already in today's note" : 'Already on this page') : 'Already added';
+        ui.show(explanation, { target, state: 'existing', hint });
+      } else ui.show(`Added to ${place}. Original kept in place.`, { target, state: 'added' });
     } catch (error) { if (version === feedbackVersion) showError(error, target); }
   }
 

@@ -62,9 +62,7 @@ export function createDeskCapture({ getAPI }) {
     if (!source.pageUid) throw new DeskDropError('SOURCE_METADATA', 'Could not identify the source page. Nothing was added.');
     const page = await resolveDestination(origin, destination, signal);
     if (sourceUid === page.uid || source.pageUid === page.uid) {
-      throw new DeskDropError(page.kind === 'desk' ? 'DESK_SOURCE' : 'SOURCE_ON_PAGE', page.kind === 'desk'
-        ? 'Notes already inside a Desk page cannot be added again.'
-        : 'This block is already on that page. Nothing was added.');
+      return { status: 'existing', reason: 'source-on-page', sourceUid, pageUid: page.uid, ...(page.kind === 'desk' ? { deskUid: page.uid } : {}), context: origin };
     }
     if (page.kind === 'desk' && await run(() => adapter.isDeskPage(source.pageUid))) {
       throw new DeskDropError('DESK_SOURCE', 'Notes already inside a Desk page cannot be added again.');

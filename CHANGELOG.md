@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 - Clear outcomes
+
+- Treat blocks already on the destination page as an informational result with no graph write. Daily Notes explicitly says **Already in today's note**.
+- Distinguish existing embeds with a neutral circled check and **Already added**, reserving the green check for newly added entries.
+- Show short, destination-anchored explanations for existing content for 1.8 seconds. Explain real failures immediately for 2.2 seconds, with details available again on hover or keyboard focus.
+- Keep the fixed far-right feedback slot, count coverage/restoration, native navigation, and 900ms new-add confirmation.
+- Remove contextual explanations on new drags, Escape, graph changes, scroll/resize, or unload; retain accessible labels and the live region.
+- Add no-write same-page coverage and browser regressions for distinct outcomes, immediate explanations, focus access, and cleanup.
+
 ## 0.2.1 - Roam Drop and far-right feedback
 
 - Rename the extension to **Roam Drop**. Retain the existing Depot identifier and runtime key so the same listing and preview continue to work.

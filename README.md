@@ -10,7 +10,9 @@ In-memory sandbox demonstration; this image does not show a production graph.
 
 1. Grab a block's bullet in the main outline or right sidebar. This also works while its editor has a cursor.
 2. Drag onto a supported sidebar row, without modifier keys. A **+** marks the destination.
-3. Release to collect the block. A brief **green check** confirms it; click the page normally to view the result.
+3. Release to collect the block. A brief **green check** means a new entry was added; click the page normally to view it.
+
+A neutral circled check explains when no new entry is needed: **Already in today's note**, **Already on this page**, or **Already added**. A warning is reserved for a blocked or unconfirmed operation and immediately shows its reason. [Feedback examples](assets/outcome-feedback-sandbox.png).
 
 The plus and check share a fixed slot at the far right. Reference counts are covered while feedback is visible and reappear afterward.
 
@@ -22,7 +24,7 @@ Entries appear at the top. Repeated drops onto the same destination don't add du
 
 One block at a time, within the same graph and window. Drag by the bullet; dragging editor text keeps its normal behavior. Modifier gestures and other drop targets retain their native behavior. Whole pages, multi-block selections, external drops, and reference/query/embed views aren't supported. Functional sidebar items such as Roam Depot aren't drop destinations.
 
-The extension creates `{{embed-path: ((uid)) closed}}` entries and never moves, updates, or deletes the source block. Capturing into its own source page is rejected.
+The extension creates `{{embed-path: ((uid)) closed}}` entries and never moves, updates, or deletes the source block. Dropping a block onto its own page leaves it as-is and shows an informational result.
 
 [Draft Depot PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511) · PR preview: `404KSG+roam-desk-drop+1511`.
 
