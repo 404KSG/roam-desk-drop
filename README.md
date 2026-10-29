@@ -1,33 +1,26 @@
 # Roam Drop
 
-Drag a block onto **Daily Notes**, **Desk**, or a **starred page** in Roam's left sidebar to add a live embed. The original stays in place.
+Drag blocks to Daily Notes, Desk, or starred pages as live embeds. Originals stay in place.
 
-![Edited-block drag and green success check in the in-memory sandbox](assets/sidebar-drop-sandbox.png)
+![Roam Drop sidebar collection in the local sandbox](https://raw.githubusercontent.com/404KSG/roam-desk-drop/8b1e35255424d09fe4c6e2265be45a9bc7acf6d2/assets/sidebar-drop-sandbox.png)
 
-In-memory sandbox demonstration; this image does not show a production graph.
+*0.2.2 sandbox preview, not a production graph.*
 
 ## Use
 
-1. Grab a block's bullet in the main outline or right sidebar. This also works while its editor has a cursor.
-2. Drag onto a supported sidebar row, without modifier keys. A **+** marks the destination.
-3. Release to collect the block. A brief **green check** means a new entry was added; click the page normally to view it.
+1. Grab a block's bullet, even while editing.
+2. Drop onto a supported sidebar page without modifier keys.
+3. A green check means added; a neutral check explains existing content; a warning explains a problem.
 
-A neutral circled check explains when no new entry is needed: **Already in today's note**, **Already on this page**, or **Already added**. A warning is reserved for a blocked or unconfirmed operation and immediately shows its reason. [Feedback examples](assets/outcome-feedback-sandbox.png).
-
-The plus and check share a fixed slot at the far right. Reference counts are covered while feedback is visible and reappear afterward.
-
-**Daily Notes** collects into today's daily note page, even when you're viewing another day. **Desk** uses your native Desk binding; open Desk once to initialize it. **Starred pages** collect into the linked page.
-
-Entries appear at the top. Repeated drops onto the same destination don't add duplicates. The same block can be collected into different pages. There is no inline Undo action; entries remain ordinary Roam blocks.
+Daily Notes uses today's page and may create it. Open native Desk once to initialize it. New embeds go at the top. There is no inline Undo.
 
 ## Scope
 
-One block at a time, within the same graph and window. Drag by the bullet; dragging editor text keeps its normal behavior. Modifier gestures and other drop targets retain their native behavior. Whole pages, multi-block selections, external drops, and reference/query/embed views aren't supported. Functional sidebar items such as Roam Depot aren't drop destinations.
+One block, one graph, one window. Whole pages, selections, external content, and reference/query/embed views are not supported. Text selection and other native gestures stay unchanged.
 
-The extension creates `{{embed-path: ((uid)) closed}}` entries and never moves, updates, or deletes the source block. Dropping a block onto its own page leaves it as-is and shows an informational result.
+[Depot Draft #1511](https://github.com/Roam-Research/roam-depot/pull/1511) · Preview ID: `404KSG+roam-desk-drop+1511`.
+The install ID is unchanged for compatibility.
 
-[Draft Depot PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511) · PR preview: `404KSG+roam-desk-drop+1511`.
+[Technical details](https://github.com/404KSG/roam-desk-drop/blob/feat/sidebar-page-drop/docs/design.md) · [Verification](https://github.com/404KSG/roam-desk-drop/blob/feat/sidebar-page-drop/docs/verification.md) · [MIT](https://github.com/404KSG/roam-desk-drop/blob/feat/sidebar-page-drop/LICENSE)
 
-[Technical details](docs/design.md) · [Interaction](docs/quiet-interaction.md) · [Verification and remaining gaps](docs/verification.md) · [MIT license](LICENSE)
-
-Earlier demo assets show the Desk-only interaction from 0.1.3. Third-party demo content retains its owners' rights.
+Third-party demo content retains its owners' rights.

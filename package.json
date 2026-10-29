@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Drag blocks onto Daily Notes, Desk, or starred pages to add live embeds without moving the originals.",
+  "description": "Drag blocks to Daily Notes, Desk, or starred pages as live embeds. Originals stay in place.",
   "scripts": {
     "test": "node --test test/*.test.js",
     "build": "node scripts/build.mjs",

@@ -2,6 +2,7 @@
 
 ## 0.2.2 - Clear outcomes
 
+- Align the Roam Drop name and concise description across the repository landing page, current preview, package metadata, and Depot listing. Keep legacy installation identifiers unchanged; this copy update does not change runtime behavior.
 - Treat blocks already on the destination page as an informational result with no graph write. Daily Notes explicitly says **Already in today's note**.
 - Distinguish existing embeds with a neutral circled check and **Already added**, reserving the green check for newly added entries.
 - Show short, destination-anchored explanations for existing content for 1.8 seconds. Explain real failures immediately for 2.2 seconds, with details available again on hover or keyboard focus.
