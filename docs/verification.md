@@ -50,7 +50,11 @@ The build reused an existing esbuild 0.27.2 executable through `ESBUILD_BIN`. No
 - Abort/dispose during DNP lookup stops before page creation. Already submitted SDK writes remain outside cancellation control.
 - Foreign-origin or malformed shortcut links are rejected.
 
-Independent review findings and any resulting revisions are tracked on the Draft source PR.
+## Independent Grok review
+
+Grok 4.7 independently reviewed the five core source modules with read-only tools and reported no high-confidence actionable correctness defects. Its follow-up review confirmed that abort/dispose during DNP lookup throws before `page.create` is called. The reviewed runtime is included in `4d7265d`; the bundle hash above is unchanged by this documentation update.
+
+This was source review, not a second execution of the browser suite. The reviewer explicitly retained the limit that a page or embed write already submitted to Roam cannot be canceled retroactively. Machine-readable execution evidence and the original review transcript remain local; the Draft source PR records this review disposition.
 
 ## Remaining compatibility work
 
