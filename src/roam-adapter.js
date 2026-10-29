@@ -1,7 +1,7 @@
 export class DeskDropError extends Error {
   constructor(code, message) {
     super(message);
-    this.name = 'DeskDropError';
+    this.name = 'RoamDropError';
     this.code = code;
   }
 }
@@ -26,7 +26,7 @@ export function createRoamDeskAdapter({ getAPI }) {
     const value = api();
     const context = { graphName: value.graph?.name, graphType: value.graph?.type, userUid: value.user.uid() };
     if (!context.graphName || !context.graphType || !context.userUid) {
-      throw new DeskDropError('NO_CONTEXT', 'Sign in and open a Roam graph to use Desk Drop.');
+      throw new DeskDropError('NO_CONTEXT', 'Sign in and open a Roam graph to use Roam Drop.');
     }
     return Object.freeze(context);
   }

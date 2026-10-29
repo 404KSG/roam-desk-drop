@@ -1,6 +1,6 @@
 # Documentation
 
-Desk Drop now uses English throughout the extension, documentation, tests, and demo.
+Roam Drop uses English throughout the extension, documentation, tests, and demo.
 
 See the [main README](https://github.com/404KSG/roam-desk-drop#readme) for the current documentation.
 

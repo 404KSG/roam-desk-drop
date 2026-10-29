@@ -1,4 +1,4 @@
-# Desk Drop
+# Roam Drop
 
 Drag a block onto **Daily Notes**, **Desk**, or a **starred page** in Roam's left sidebar to add a live embed. The original stays in place.
 
@@ -11,6 +11,8 @@ In-memory sandbox demonstration; this image does not show a production graph.
 1. Grab a block's bullet in the main outline or right sidebar. This also works while its editor has a cursor.
 2. Drag onto a supported sidebar row, without modifier keys. A **+** marks the destination.
 3. Release to collect the block. A brief **green check** confirms it; click the page normally to view the result.
+
+The plus and check share a fixed slot at the far right. Reference counts are covered while feedback is visible and reappear afterward.
 
 **Daily Notes** collects into today's daily note page, even when you're viewing another day. **Desk** uses your native Desk binding; open Desk once to initialize it. **Starred pages** collect into the linked page.
 

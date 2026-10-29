@@ -124,18 +124,69 @@ async function runTests() {
     const icon = row.querySelector('.rr-desk-drop-icon'), after = point(icon), color = getComputedStyle(icon).color;
     assert(before.clientX === after.clientX && before.clientY === after.clientY, 'Success icon shifted');
     const rgb = color.match(/[\d.]+/g)?.map(Number); assert(rgb && rgb[1] > rgb[0] && rgb[1] > rgb[2], `Success is not green: ${color}`);
+    assert(getComputedStyle(row.querySelector('.rr-sidebar-ref-count')).visibility === 'hidden', 'Success did not cover the count');
     row.dispatchEvent(new MouseEvent('mouseenter'));
     await waitFor(() => !row.hasAttribute('data-rr-desk-drop'), 1300);
     assert(!row.querySelector('.rr-desk-drop-accessory'), 'Check persisted while hovering');
+    assert(getComputedStyle(row.querySelector('.rr-sidebar-ref-count')).visibility === 'visible', 'Success expiry did not restore the count');
   });
-  await check('Feedback preserves native geometry and restores starred reference counts', async () => {
+  await check('Feedback stays at the far right with or without a count and never shifts the row', async () => {
+    let slot;
+    for (const selector of ['#build', '#reading']) {
+      const row = $(selector), before = JSON.stringify(row.getBoundingClientRect().toJSON());
+      event('dragover', row, begin());
+      const rect = row.getBoundingClientRect(), icon = row.querySelector('.rr-desk-drop-accessory').getBoundingClientRect();
+      assert(JSON.stringify(rect.toJSON()) === before, 'Row geometry changed');
+      assert(Math.abs(rect.right - icon.right - 10) < .5, 'Feedback moved left to make room for a count');
+      if (slot !== undefined) assert(Math.abs(slot - icon.right) < .5, 'Count changed the feedback slot');
+      slot = icon.right;
+      const count = row.querySelector('.rr-sidebar-ref-count');
+      if (count) {
+        assert(getComputedStyle(count).visibility === 'hidden' && getComputedStyle(count).display !== 'none', 'Count was not covered while preserving its space');
+        assert(count.textContent === '99+', 'Covering changed the count value');
+      }
+      window.dispatchEvent(new Event('dragend'));
+      if (count) assert(getComputedStyle(count).visibility === 'visible', 'Count not restored');
+    }
+  });
+  await check('Pending and success cover live count updates without changing count styles', async () => {
     const row = $('#build'), count = row.querySelector('.rr-sidebar-ref-count');
-    const before = JSON.stringify(row.getBoundingClientRect().toJSON()); event('dragover', row, begin());
-    assert(JSON.stringify(row.getBoundingClientRect().toJSON()) === before, 'Row geometry changed');
-    const icon = row.querySelector('.rr-desk-drop-accessory').getBoundingClientRect(), r = count.getBoundingClientRect();
-    const hidden = getComputedStyle(count).visibility === 'hidden' || getComputedStyle(count).display === 'none' || getComputedStyle(count).opacity === '0';
-    assert(hidden || icon.right <= r.left || icon.left >= r.right, 'Icon overlaps visible count');
-    window.dispatchEvent(new Event('dragend')); assert(getComputedStyle(count).visibility === 'visible' && getComputedStyle(count).display !== 'none', 'Count not restored');
+    const style = count.getAttribute('style'), text = count.textContent;
+    let release;
+    try {
+      count.style.color = 'rgb(90, 100, 110)'; count.style.visibility = 'visible';
+      const originalStyle = count.getAttribute('style');
+      fake.hooks.beforeCreate = () => new Promise(resolve => { release = resolve; });
+      event('drop', row, begin()); await waitFor(() => release);
+      assert(getComputedStyle(count).visibility === 'hidden', 'Pending did not cover the count');
+      count.textContent = '100'; release(); await waitFor(() => row.dataset.rrDeskDrop === 'added');
+      assert(getComputedStyle(count).visibility === 'hidden', 'Success uncovered the count early');
+      await waitFor(() => !row.hasAttribute('data-rr-desk-drop'), 1300);
+      assert(count.textContent === '100' && getComputedStyle(count).visibility === 'visible', 'Latest count was not restored');
+      assert(count.getAttribute('style') === originalStyle, 'Feedback overwrote count styles');
+    } finally { if (style === null) count.removeAttribute('style'); else count.setAttribute('style', style); count.textContent = text; release?.(); }
+  });
+  await check('Leaving, canceling, changing context, and unloading restore covered counts', async () => {
+    for (const mode of ['leave', 'escape', 'blur', 'hashchange', 'unload']) {
+      reset(); const row = $('#build'), count = row.querySelector('.rr-sidebar-ref-count');
+      event('dragover', row, begin()); assert(getComputedStyle(count).visibility === 'hidden', 'Count not covered: ' + mode);
+      if (mode === 'leave') event('dragleave', row, null, { clientX: 0, clientY: 0, relatedTarget: $('#ordinary-target') });
+      if (mode === 'escape') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      if (mode === 'blur') window.dispatchEvent(new Event('blur'));
+      if (mode === 'hashchange') { fake.api.graph.name = 'Other graph'; window.dispatchEvent(new Event('hashchange')); }
+      if (mode === 'unload') runtime.stop();
+      assert(getComputedStyle(count).visibility === 'visible' && count.textContent === '99+', 'Count not restored: ' + mode);
+    }
+  });
+  await check('Counts added during feedback are covered and then restored automatically', async () => {
+    const row = $('#reading'), count = document.createElement('span');
+    count.className = 'rr-sidebar-ref-count'; count.textContent = '42';
+    try {
+      event('dragover', row, begin()); row.append(count);
+      assert(getComputedStyle(count).visibility === 'hidden', 'New count was not covered');
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      assert(getComputedStyle(count).visibility === 'visible' && count.textContent === '42', 'New count was not restored');
+    } finally { count.remove(); }
   });
   await check('Edited textarea block drags by its bullet with no native dragstart', async () => {
     const editor = $('#block-input-log-outline-edited001'); editor.focus(); editor.setSelectionRange(4, 4);

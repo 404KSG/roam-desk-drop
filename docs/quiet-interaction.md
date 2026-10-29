@@ -3,7 +3,7 @@
 Keep collection feedback in the destination row. Preserve native page navigation, the original label and icon, and the sidebar's visual rhythm.
 
 ```text
-Idle       [native icon] Page name
+Idle       [native icon] Page name           reference count
 Drop       [native icon] Page name           +
 Writing    [native icon] Page name           spinner
 Added      [native icon] Page name           green check
@@ -13,10 +13,10 @@ Error      [native icon] Page name           warning
 
 ## Visual contract
 
-- The plus, spinner, check, and warning occupy the same right-hand slot. No success icon appears before the page label.
+- The plus, spinner, check, and warning occupy a fixed slot 10px from the row's right edge, whether or not the page has a reference count. No success icon appears before the page label.
 - Success is green and lasts approximately 900ms, including while hovered. There is no Undo button or hover extension of the timer.
 - Keep the 14px line icon and a faint foreground-derived target tint, with a 6px radius and no inset frame or shadow. Background transition: 100ms.
-- Keep native starred-page reference counts visible and place the feedback slot to their left with a measured gap.
+- Cover starred-page reference counts only while feedback is visible. Preserve their layout space, styles, and live values; restore them when feedback clears. The icon never moves left to accommodate a count. Counts added during feedback follow the same rule.
 - Keep original labels, icons, font, foreground, row height, and adjacent navigation geometry. No instructional row text, global toast, label motion, or automatic navigation.
 - Reduced motion disables the target transition and spinner animation.
 

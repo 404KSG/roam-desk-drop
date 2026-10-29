@@ -4,12 +4,13 @@ const ROW = `.roam-app > .roam-sidebar-container ${MARK}[data-rr-desk-drop]`;
 const READY_ROW = `.roam-body .roam-app > .roam-sidebar-container .roam-sidebar-content ${MARK}[data-rr-desk-drop="ready"]`;
 const CSS = `
 ${ROW} { position:relative; }
+${ROW}:has(> .rr-desk-drop-accessory) :is(.rr-sidebar-ref-count, [class*="ref-count"]) { visibility:hidden !important; }
 ${READY_ROW} {
   background-color:color-mix(in srgb,currentColor 7%,transparent) !important;
   border-radius:6px;
   transition:background-color 100ms ease;
 }
-.rr-desk-drop-accessory { position:absolute; top:50%; transform:translateY(-50%); display:flex; align-items:center; height:20px; color:inherit; pointer-events:none; }
+.rr-desk-drop-accessory { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:14px; height:20px; color:inherit; pointer-events:none; }
 .rr-desk-drop-icon { display:block; width:14px; height:14px; flex:none; opacity:.8; }
 .rr-desk-drop-success { color:#1f8a4c; opacity:1; }
 .rr-desk-drop-error { color:var(--rr-desk-drop-warning,#a87936); pointer-events:auto; cursor:help; border-radius:3px; }
@@ -38,19 +39,6 @@ export function createDeskDropUI({ documentRef, windowRef }) {
     if (state === 'pending') restore(row, 'aria-busy', busy, 'true');
     painted = null;
   }
-  function trailingCount(row) {
-    return row.querySelector(':scope > .rr-sidebar-ref-count')
-      || [...row.children].find(child => child.classList?.contains('rr-sidebar-ref-count') || /\bref-count\b/.test(String(child.className || '')));
-  }
-  function slotRight(row) {
-    const count = trailingCount(row);
-    if (!count) return 10;
-    const rowRect = row.getBoundingClientRect();
-    const countRect = count.getBoundingClientRect();
-    // Wide labels such as 99+ stay to the right of the icon. The gap is measured, not a fixed inset.
-    if (!countRect.width && !countRect.height) return 10;
-    return Math.max(10, Math.ceil(rowRect.right - countRect.left + 8));
-  }
   function icon(state) {
     if (state === 'pending') {
       const spinner = documentRef.createElement('span');
@@ -74,7 +62,6 @@ export function createDeskDropUI({ documentRef, windowRef }) {
     const { row } = model, state = model.state;
     const accessory = documentRef.createElement('span');
     accessory.className = 'rr-desk-drop-accessory';
-    accessory.style.right = `${slotRight(row)}px`;
     painted = { row, accessory, marker: row.getAttribute('data-rr-desk-drop'), busy: row.getAttribute('aria-busy'), state };
     row.setAttribute('data-rr-desk-drop', state);
     if (state === 'pending') row.setAttribute('aria-busy', 'true');

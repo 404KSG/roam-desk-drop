@@ -24,7 +24,7 @@ export function createDeskCapture({ getAPI }) {
   let tail = Promise.resolve(), disposed = false;
 
   function active(signal) {
-    if (disposed || signal?.aborted) throw new DeskDropError('ABORTED', 'Desk Drop has stopped; this operation will not continue.');
+    if (disposed || signal?.aborted) throw new DeskDropError('ABORTED', 'Roam Drop has stopped; this operation will not continue.');
   }
   async function guarded(context, fn, signal) {
     active(signal);
@@ -46,7 +46,7 @@ export function createDeskCapture({ getAPI }) {
       if (destination.uid != null && !isSafeUid(destination.uid)) throw new DeskDropError('INVALID_UID', 'Could not safely identify the destination page.');
       return guarded(origin, () => adapter.resolvePinnedPage(origin, destination), signal);
     }
-    throw new DeskDropError('DESTINATION_UNSUPPORTED', 'This sidebar target is not a page Desk Drop can write to.');
+    throw new DeskDropError('DESTINATION_UNSUPPORTED', 'This sidebar target is not a page Roam Drop can write to.');
   }
 
   async function captureOne({ uids, origin, destination, signal }) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 - Roam Drop and far-right feedback
+
+- Rename the extension to **Roam Drop**. Retain the existing Depot identifier and runtime key so the same listing and preview continue to work.
+- Fix the feedback slot 10px from the row's right edge, with or without a reference count. The plus, spinner, green check, and warning share that slot.
+- Temporarily cover reference counts while feedback is visible, preserving their layout space, styles, and current values. Restore them on completion, leaving, cancellation, context changes, or unload.
+- Cover counts added or updated while feedback is active, without shifting the icon or overwriting count data.
+- Strengthen browser regressions for far-right placement, count coverage/restoration, and unchanged row geometry. Refresh the sandbox image to show the new name and placement.
+
 ## 0.2.0 - Sidebar page destinations
 
 - Extend collection to Daily Notes, native Desk, and starred pages in the left sidebar. Daily Notes uses today's local date; starred pages use their linked page identity.

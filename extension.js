@@ -2,7 +2,7 @@
 var DeskDropError = class extends Error {
   constructor(code, message) {
     super(message);
-    this.name = "DeskDropError";
+    this.name = "RoamDropError";
     this.code = code;
   }
 };
@@ -23,7 +23,7 @@ function createRoamDeskAdapter({ getAPI }) {
     const value = api();
     const context = { graphName: value.graph?.name, graphType: value.graph?.type, userUid: value.user.uid() };
     if (!context.graphName || !context.graphType || !context.userUid) {
-      throw new DeskDropError("NO_CONTEXT", "Sign in and open a Roam graph to use Desk Drop.");
+      throw new DeskDropError("NO_CONTEXT", "Sign in and open a Roam graph to use Roam Drop.");
     }
     return Object.freeze(context);
   }
@@ -154,7 +154,7 @@ function createDeskCapture({ getAPI }) {
   const unconfirmed = () => new DeskDropError("WRITE_UNCONFIRMED", "Could not confirm the result. Further attempts for this block are paused; check that page first.");
   let tail = Promise.resolve(), disposed = false;
   function active(signal) {
-    if (disposed || signal?.aborted) throw new DeskDropError("ABORTED", "Desk Drop has stopped; this operation will not continue.");
+    if (disposed || signal?.aborted) throw new DeskDropError("ABORTED", "Roam Drop has stopped; this operation will not continue.");
   }
   async function guarded(context, fn, signal) {
     active(signal);
@@ -180,7 +180,7 @@ function createDeskCapture({ getAPI }) {
       if (destination.uid != null && !isSafeUid(destination.uid)) throw new DeskDropError("INVALID_UID", "Could not safely identify the destination page.");
       return guarded(origin, () => adapter.resolvePinnedPage(origin, destination), signal);
     }
-    throw new DeskDropError("DESTINATION_UNSUPPORTED", "This sidebar target is not a page Desk Drop can write to.");
+    throw new DeskDropError("DESTINATION_UNSUPPORTED", "This sidebar target is not a page Roam Drop can write to.");
   }
   async function captureOne({ uids: uids2, origin, destination, signal }) {
     const run = (fn) => guarded(origin, fn, signal);
@@ -290,12 +290,13 @@ var ROW = `.roam-app > .roam-sidebar-container ${MARK}[data-rr-desk-drop]`;
 var READY_ROW = `.roam-body .roam-app > .roam-sidebar-container .roam-sidebar-content ${MARK}[data-rr-desk-drop="ready"]`;
 var CSS = `
 ${ROW} { position:relative; }
+${ROW}:has(> .rr-desk-drop-accessory) :is(.rr-sidebar-ref-count, [class*="ref-count"]) { visibility:hidden !important; }
 ${READY_ROW} {
   background-color:color-mix(in srgb,currentColor 7%,transparent) !important;
   border-radius:6px;
   transition:background-color 100ms ease;
 }
-.rr-desk-drop-accessory { position:absolute; top:50%; transform:translateY(-50%); display:flex; align-items:center; height:20px; color:inherit; pointer-events:none; }
+.rr-desk-drop-accessory { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:14px; height:20px; color:inherit; pointer-events:none; }
 .rr-desk-drop-icon { display:block; width:14px; height:14px; flex:none; opacity:.8; }
 .rr-desk-drop-success { color:#1f8a4c; opacity:1; }
 .rr-desk-drop-error { color:var(--rr-desk-drop-warning,#a87936); pointer-events:auto; cursor:help; border-radius:3px; }
@@ -322,17 +323,6 @@ function createDeskDropUI({ documentRef, windowRef }) {
     restore(row, "data-rr-desk-drop", marker, state);
     if (state === "pending") restore(row, "aria-busy", busy, "true");
     painted = null;
-  }
-  function trailingCount(row) {
-    return row.querySelector(":scope > .rr-sidebar-ref-count") || [...row.children].find((child) => child.classList?.contains("rr-sidebar-ref-count") || /\bref-count\b/.test(String(child.className || "")));
-  }
-  function slotRight(row) {
-    const count = trailingCount(row);
-    if (!count) return 10;
-    const rowRect = row.getBoundingClientRect();
-    const countRect = count.getBoundingClientRect();
-    if (!countRect.width && !countRect.height) return 10;
-    return Math.max(10, Math.ceil(rowRect.right - countRect.left + 8));
   }
   function icon(state) {
     if (state === "pending") {
@@ -362,7 +352,6 @@ function createDeskDropUI({ documentRef, windowRef }) {
     const { row } = model, state = model.state;
     const accessory = documentRef.createElement("span");
     accessory.className = "rr-desk-drop-accessory";
-    accessory.style.right = `${slotRight(row)}px`;
     painted = { row, accessory, marker: row.getAttribute("data-rr-desk-drop"), busy: row.getAttribute("aria-busy"), state };
     row.setAttribute("data-rr-desk-drop", state);
     if (state === "pending") row.setAttribute("aria-busy", "true");
@@ -502,7 +491,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
   const ui = createDeskDropUI({ documentRef, windowRef });
   function showError(error, target = documentRef.querySelector(DESK_SELECTOR)) {
     if (!loaded || error?.code === "ABORTED") return;
-    ui.show(error instanceof DeskDropError ? error.message : "Could not complete the operation. Check the page; Desk Drop has not moved the original block.", { target, state: "error", persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : "Could not complete the operation. Check the page; Roam Drop has not moved the original block.", { target, state: "error", persistent: true });
   }
   function clearFeedback() {
     feedbackVersion++;
@@ -811,7 +800,7 @@ function createExtensionLifecycle(windowRef = globalThis.window) {
   let runtime;
   return {
     onload() {
-      if (!windowRef?.document) throw new Error("Desk Drop requires a Roam browser environment.");
+      if (!windowRef?.document) throw new Error("Roam Drop requires a Roam browser environment.");
       windowRef[KEY]?.stop?.();
       runtime?.stop();
       delete windowRef[KEY];

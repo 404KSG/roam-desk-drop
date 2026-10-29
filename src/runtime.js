@@ -39,7 +39,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
 
   function showError(error, target = documentRef.querySelector(DESK_SELECTOR)) {
     if (!loaded || error?.code === 'ABORTED') return;
-    ui.show(error instanceof DeskDropError ? error.message : 'Could not complete the operation. Check the page; Desk Drop has not moved the original block.', { target, state: 'error', persistent: true });
+    ui.show(error instanceof DeskDropError ? error.message : 'Could not complete the operation. Check the page; Roam Drop has not moved the original block.', { target, state: 'error', persistent: true });
   }
   function clearFeedback() { feedbackVersion++; ui.clearFeedback(); }
   function resetDrag() { session = null; ui.clearHighlight(); }

@@ -1,6 +1,6 @@
 # Sidebar collection design
 
-Desk Drop 0.2 extends the existing native-embed collection action to page destinations in Roam's left sidebar.
+Roam Drop 0.2.1 collects blocks into page destinations in Roam's left sidebar. The extension was previously named Desk Drop.
 
 ## Destinations
 
@@ -33,7 +33,7 @@ This is not a distributed transaction. Concurrent devices or instances may still
 
 ## Interface and lifecycle
 
-Keep feedback local to the destination row: plus on accepted hover, spinner while writing, a green check in the same slot for approximately 900ms, and a focusable warning on error. Success expires even while the pointer stays over the row. Preserve native navigation, labels, row geometry, and shortcut counts. See [interaction details](quiet-interaction.md).
+Keep feedback local to the destination row in a fixed slot 10px from its right edge: plus on accepted hover, spinner while writing, a green check for approximately 900ms, and a focusable warning on error. Reference counts are temporarily hidden with visibility only while the row contains feedback, preserving their layout and live values. Counts reappear automatically when feedback clears, including counts added during the interaction. Success expires even while hovered. Preserve native navigation, labels, and row geometry. See [interaction details](quiet-interaction.md).
 
 Unload removes listeners, drag state, temporary attributes, feedback, live region, and injected styles. No clipboard changes, automatic navigation, analytics, network calls, source moves/updates/deletes, or dependencies are introduced.
 
