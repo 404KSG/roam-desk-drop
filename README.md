@@ -1,29 +1,16 @@
-# Desk Drop
+# Roam Drop
 
-Drag a block onto **Desk** in Roam's sidebar to add a live embed. The original stays in place.
+Drag blocks to Daily Notes, Desk, or starred pages as live embeds. Originals stay in place.
 
-<picture>
-  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png">
-  <img src="https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo.gif" alt="Dragging a block onto Desk, then opening its new card." width="1280">
-</picture>
+**Current preview: 0.2.2.** [Usage and setup](https://github.com/404KSG/roam-desk-drop/blob/feat/sidebar-page-drop/README.md) · [Source PR #1](https://github.com/404KSG/roam-desk-drop/pull/1).
+The preview is on `feat/sidebar-page-drop`; `main` still contains the legacy 0.1.3 Desk-only runtime. The feature PR has not been merged.
 
-Recorded in Roam desktop; personal details hidden. [Static preview](https://raw.githubusercontent.com/404KSG/roam-desk-drop/main/assets/desk-drop-demo-still.png).
+![Roam Drop sidebar collection in the local sandbox](https://raw.githubusercontent.com/404KSG/roam-desk-drop/8b1e35255424d09fe4c6e2265be45a9bc7acf6d2/assets/sidebar-drop-sandbox.png)
 
-## Use
+*Sandbox preview, not a production graph.*
 
-1. Open Roam's native Desk once to initialize it.
-2. Drag a block's bullet onto **Desk**, without modifier keys.
-3. Hover the row for **Undo**, or click **Desk** to view it.
+[Depot Draft #1511](https://github.com/Roam-Research/roam-depot/pull/1511) · Preview ID: `404KSG+roam-desk-drop+1511`.
 
-Repeated drops don't add duplicates. Undo only removes the new Desk entry, never the original.
+[Verification and limits](https://github.com/404KSG/roam-desk-drop/blob/feat/sidebar-page-drop/docs/verification.md) · [MIT license](https://github.com/404KSG/roam-desk-drop/blob/main/LICENSE)
 
-## Scope
-
-One block at a time from the main or right-sidebar outline, within the same graph and window. Selections, pages, external drops, and reference/query/embed views aren't supported.
-
-[Roam Depot review](https://github.com/Roam-Research/roam-depot/pull/1511) is pending; broader compatibility checks remain open.
-PR preview: `404KSG+roam-desk-drop+1511`.
-
-[Technical details](https://github.com/404KSG/roam-desk-drop/blob/main/docs/design.md) · [Verification](https://github.com/404KSG/roam-desk-drop/blob/main/docs/verification.md) · [MIT license](https://github.com/404KSG/roam-desk-drop/blob/main/LICENSE)
-
-Third-party demo content retains its owners' rights.
+The repository URL and install ID retain their original slug for compatibility.
