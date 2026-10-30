@@ -1,10 +1,10 @@
 {
-  "name": "roam-desk-drop",
-  "version": "0.1.3",
+  "name": "roam-drop",
+  "version": "0.2.2",
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Drag a Roam block onto Desk to add a native embed without moving the original.",
+  "description": "Drag blocks to Daily Notes, Desk, or starred pages as live embeds. Originals stay in place.",
   "scripts": {
     "test": "node --test test/*.test.js",
     "build": "node scripts/build.mjs",
