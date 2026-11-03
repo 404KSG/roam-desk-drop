@@ -10,6 +10,8 @@ const AMBIGUOUS = '.rm-reference-container,.rm-reference-item,.roam-query,.roam-
 const PAGE_HASH = /^#\/(app|offline)\/([^/]+)\/page\/([^/?#]+)\/?(?:\?.*)?$/;
 const DRAG_THRESHOLD = 8;
 
+export const isUsableNativeDrag = event => !event?.defaultPrevented && !hasModifier(event) && hasRoamPayload(event.dataTransfer);
+
 const parsePageHref = value => {
   if (typeof value !== 'string' || !value.trim()) return null;
   let url;
@@ -156,20 +158,28 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
 
   function onDragStart(event) {
     const bullet = sourceBullet(event.target);
-    if (gesture && bullet === gesture.bullet) {
-      // Edited blocks may emit dragstart without a payload, or cancel it later.
-      // Keep their pointer stream alive instead of mistaking that event for a native drag.
-      if (gesture.editing && !hasModifier(event)) {
-        event.preventDefault(); resetDrag(); return;
-      }
-      gesture.native = true;
-      ui.clearPointerDrag();
-    }
+    const pendingGesture = gesture && bullet === gesture.bullet ? gesture : null;
     resetDrag();
-    if (event.defaultPrevented || hasModifier(event) || !bullet) return;
-    clearFeedback();
-    try { session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || undefined }; }
-    catch (error) { showError(error); }
+    if (!bullet || hasModifier(event)) return;
+    let nativeSession;
+    try {
+      nativeSession = session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || undefined };
+      clearFeedback();
+    } catch (error) { showError(error); return; }
+    // This capture listener runs before Roam's target handler. Do not cancel or
+    // inspect the protected payload yet: the handler may synchronously provide it.
+    // A canceled or payload-less native start leaves the armed pointer gesture
+    // available for the bullet fallback.
+    queueMicrotask(() => {
+      if (!loaded || !isUsableNativeDrag(event)) {
+        if (session === nativeSession) resetDrag();
+        return;
+      }
+      if (gesture === pendingGesture) {
+        gesture.native = true;
+        ui.clearPointerDrag();
+      }
+    });
   }
   function onDragOver(event) {
     const target = rowFrom(event.target), effect = transferEffect(event.dataTransfer);
@@ -220,7 +230,6 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
       gesture = {
         pointerId: event.pointerId, bullet, x: event.clientX, y: event.clientY,
         armed: false, native: false, sourceUid, origin: capture.getContext(),
-        editing: Boolean(bullet.closest('.roam-block-container,.rm-block-main')?.querySelector('textarea[id^="block-input-"]')),
       };
     } catch { cancelGesture(); }
   }
@@ -279,7 +288,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
       context = next;
     } catch { clearFeedback(); }
   }
-  const windowListeners = [['dragstart', onDragStart], ['dragend', () => { resetDrag(); cancelGesture(); }], ['pointerdown', onPointerDown], ['pointermove', onPointerMove], ['pointerup', onPointerUp], ['pointercancel', cancelGesture], ['click', onClick], ['blur', onWindowBlur], ['keydown', onKeyDown], ['hashchange', onHashChange]];
+  const windowListeners = [['dragstart', onDragStart], ['dragend', () => { resetDrag(); if (gesture?.native) cancelGesture(); }], ['pointerdown', onPointerDown], ['pointermove', onPointerMove], ['pointerup', onPointerUp], ['pointercancel', cancelGesture], ['click', onClick], ['blur', onWindowBlur], ['keydown', onKeyDown], ['hashchange', onHashChange]];
   const documentListeners = [['dragenter', onDragOver], ['dragover', onDragOver], ['dragleave', onDragLeave], ['drop', onDrop]];
 
   return {

@@ -1,7 +1,7 @@
 import { createFakeRoam } from '../fake-roam.js';
 const bundleMode = new URLSearchParams(location.search).has('bundle');
 const lifecycle = (await import(bundleMode ? '../../extension.js' : '../../src/extension-entry.js')).default;
-let fake, runtime, navigation = 0;
+let fake, runtime, navigation = 0, nativeReorders = 0;
 const $ = selector => document.querySelector(selector);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const waitFor = async (predicate, timeout = 1800) => {
@@ -12,11 +12,13 @@ const children = uid => fake.block(uid)?.[':block/children'] ?? [];
 function render() {
   $('#entries').textContent = ['desk-user-one', 'target001', 'target002', fake.api.util.dateToPageUid(new Date())].map(uid => `${fake.records.get(uid)?.title || uid}: ${children(uid).map(x => x[':block/string']).join(', ') || 'Empty'}`).join('\n');
   $('#navigation').textContent = `Native navigations: ${navigation}`;
+  $('#native-reorders').textContent = nativeReorders;
 }
 function reset() {
-  runtime?.stop(); fake = createFakeRoam(); navigation = 0;
+  runtime?.stop(); fake = createFakeRoam(); navigation = 0; nativeReorders = 0;
   fake.records.set('edited001', { uid: 'edited001', string: 'Currently editing this block', parent: 'page00001', children: [], edited: 1 });
-  fake.records.get('page00001').children.push('edited001');
+  fake.records.set('native001', { uid: 'native001', string: 'Editing with native drag enabled', parent: 'page00001', children: [], edited: 1 });
+  fake.records.get('page00001').children.push('edited001', 'native001');
   fake.hooks.afterCreate = render;
   window.roamAlphaAPI = fake.api;
   runtime = { start: () => lifecycle.onload(), stop: () => lifecycle.onunload() };
@@ -31,7 +33,9 @@ function begin(selector = '#bullet', options = {}, allowed = 'all') {
   Object.defineProperty(dt, 'effectAllowed', { value: allowed });
   let effect = 'none';
   Object.defineProperty(dt, 'dropEffect', { get: () => effect, set: value => { effect = value; } });
-  event('dragstart', $(selector), dt, options); return dt;
+  const started = event('dragstart', $(selector), dt, options);
+  Object.defineProperty(dt, '__dragStartPrevented', { value: started.defaultPrevented });
+  return dt;
 }
 function point(node) { const r = node.getBoundingClientRect(); return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }; }
 function pointer(type, node, coords = point(node), options = {}) {
@@ -50,6 +54,13 @@ for (const bullet of document.querySelectorAll('.rm-bullet')) bullet.addEventLis
   e.dataTransfer.setData('roam/roam-uri-list', `roam://#/app/Test%20graph/page/${uid}`);
 });
 for (const row of document.querySelectorAll('.log-button,.starred-pages a')) row.addEventListener('click', e => { e.preventDefault(); navigation++; render(); });
+$('#native-reorder-target').addEventListener('dragover', e => {
+  if (e.dataTransfer.types.includes('roam/block-uid-list-only-parents')) e.preventDefault();
+});
+$('#native-reorder-target').addEventListener('drop', e => {
+  if (!e.dataTransfer.types.includes('roam/block-uid-list-only-parents')) return;
+  e.preventDefault(); nativeReorders++; render();
+});
 $('#stop').addEventListener('click', () => runtime.stop());
 
 async function runTests() {
@@ -82,7 +93,7 @@ async function runTests() {
     const uid = fake.api.util.dateToPageUid(new Date());
     event('drop', $('#daily'), begin()); await waitFor(() => children(uid).length === 1);
     assert(children(uid)[0][':block/string'] === '{{embed-path: ((block0001)) closed}}', 'Wrong DNP content');
-    assert(fake.records.get('page00001').children.length === 2, 'Source page changed');
+    assert(fake.records.get('page00001').children.length === 3, 'Source page changed');
   });
   await check('A block already in today shows a clear informational result without a write', async () => {
     const row = $('#daily'), uid = fake.api.util.dateToPageUid(new Date());
@@ -142,7 +153,7 @@ async function runTests() {
       assert(!event('dragover', $(selector), dt).defaultPrevented && !event('drop', $(selector), dt).defaultPrevented, 'Unsupported target intercepted');
       assert(dt.dropEffect === 'move', 'Native cursor changed');
     }
-    await new Promise(requestAnimationFrame); assert(fake.snapshot().length === 7, 'Unexpected graph write');
+    await new Promise(requestAnimationFrame); assert(fake.snapshot().length === 8, 'Unexpected graph write');
   });
   await check('Cross-graph shortcut links and block links are not valid page writes', async () => {
     const anchor = $('#build').parentElement, old = anchor.getAttribute('href');
@@ -240,6 +251,19 @@ async function runTests() {
       assert(getComputedStyle(count).visibility === 'visible' && count.textContent === '42', 'New count was not restored');
     } finally { count.remove(); }
   });
+  await check('Native-enabled edited drags retain their payload and reorder outside the sidebar', async () => {
+    const bullet = $('#native-editing-bullet'), reorder = $('#native-reorder-target');
+    bullet.closest('.roam-block-container').querySelector('textarea').focus();
+    pointer('pointerdown', bullet);
+    const dt = begin('#native-editing-bullet');
+    assert(!dt.__dragStartPrevented, 'Roam Drop canceled dragstart before the native handler could start the drag');
+    await Promise.resolve();
+    assert(dt.types.includes('roam/block-uid-list-only-parents'), 'Native handler did not retain its Roam payload');
+    assert(event('dragover', reorder, dt).defaultPrevented, 'Native outline reorder target rejected the drag');
+    assert(event('drop', reorder, dt).defaultPrevented && nativeReorders === 1, 'Native outline reorder did not complete');
+    window.dispatchEvent(new Event('dragend'));
+    assert(fake.records.get('target001').children.length === 0, 'Ordinary native reorder was captured by the sidebar');
+  });
   await check('Edited textarea block drags by its bullet with no native dragstart', async () => {
     const editor = $('#block-input-log-outline-edited001'); editor.focus(); editor.setSelectionRange(4, 4);
     const before = structuredClone(fake.records.get('edited001'));
@@ -256,11 +280,12 @@ async function runTests() {
     pointerDrag(bullet, $('#ordinary-target'));
     await new Promise(requestAnimationFrame); assert(children('desk-user-one').length === 0, 'Unintended pointer capture');
   });
-  await check('Edited native dragstart cancellation still permits pointer fallback', async () => {
+  await check('Canceled edited native dragstart and dragend still permit pointer fallback', async () => {
     $('#block-input-log-outline-edited001').focus();
     pointer('pointerdown', $('#editing-bullet'));
     $('#block-input-log-outline-edited001').dispatchEvent(new FocusEvent('blur', { bubbles: false }));
     begin('#editing-bullet');
+    window.dispatchEvent(new Event('dragend'));
     pointer('pointermove', $('#build')); pointer('pointerup', $('#build'));
     await waitFor(() => children('target001').length === 1);
   });

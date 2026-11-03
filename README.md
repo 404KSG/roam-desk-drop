@@ -4,7 +4,7 @@ Drag blocks to Daily Notes, Desk, or starred pages as live embeds. Originals sta
 
 ![Roam Drop sidebar collection in the local sandbox](https://raw.githubusercontent.com/404KSG/roam-desk-drop/8b1e35255424d09fe4c6e2265be45a9bc7acf6d2/assets/sidebar-drop-sandbox.png)
 
-*0.2.2 sandbox preview, not a production graph.*
+*0.2.3 sandbox preview, not a production graph.*
 
 ## Use
 

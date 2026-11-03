@@ -506,6 +506,7 @@ var SOURCE_SURFACE = ".roam-article, .rm-sidebar-outline, .rm-sidebar-window, #r
 var AMBIGUOUS = ".rm-reference-container,.rm-reference-item,.roam-query,.roam-query-content,.rm-embed-container";
 var PAGE_HASH = /^#\/(app|offline)\/([^/]+)\/page\/([^/?#]+)\/?(?:\?.*)?$/;
 var DRAG_THRESHOLD = 8;
+var isUsableNativeDrag = (event) => !event?.defaultPrevented && !hasModifier(event) && hasRoamPayload(event.dataTransfer);
 var parsePageHref = (value) => {
   if (typeof value !== "string" || !value.trim()) return null;
   let url;
@@ -660,23 +661,27 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
   }
   function onDragStart(event) {
     const bullet = sourceBullet(event.target);
-    if (gesture && bullet === gesture.bullet) {
-      if (gesture.editing && !hasModifier(event)) {
-        event.preventDefault();
-        resetDrag();
-        return;
-      }
-      gesture.native = true;
-      ui.clearPointerDrag();
-    }
+    const pendingGesture = gesture && bullet === gesture.bullet ? gesture : null;
     resetDrag();
-    if (event.defaultPrevented || hasModifier(event) || !bullet) return;
-    clearFeedback();
+    if (!bullet || hasModifier(event)) return;
+    let nativeSession;
     try {
-      session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || void 0 };
+      nativeSession = session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || void 0 };
+      clearFeedback();
     } catch (error) {
       showError(error);
+      return;
     }
+    queueMicrotask(() => {
+      if (!loaded || !isUsableNativeDrag(event)) {
+        if (session === nativeSession) resetDrag();
+        return;
+      }
+      if (gesture === pendingGesture) {
+        gesture.native = true;
+        ui.clearPointerDrag();
+      }
+    });
   }
   function onDragOver(event) {
     const target = rowFrom(event.target), effect = transferEffect(event.dataTransfer);
@@ -733,8 +738,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
         armed: false,
         native: false,
         sourceUid,
-        origin: capture.getContext(),
-        editing: Boolean(bullet.closest(".roam-block-container,.rm-block-main")?.querySelector('textarea[id^="block-input-"]'))
+        origin: capture.getContext()
       };
     } catch {
       cancelGesture();
@@ -820,7 +824,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
   }
   const windowListeners = [["dragstart", onDragStart], ["dragend", () => {
     resetDrag();
-    cancelGesture();
+    if (gesture?.native) cancelGesture();
   }], ["pointerdown", onPointerDown], ["pointermove", onPointerMove], ["pointerup", onPointerUp], ["pointercancel", cancelGesture], ["click", onClick], ["blur", onWindowBlur], ["keydown", onKeyDown], ["hashchange", onHashChange]];
   const documentListeners = [["dragenter", onDragOver], ["dragover", onDragOver], ["dragleave", onDragLeave], ["drop", onDrop]];
   return {

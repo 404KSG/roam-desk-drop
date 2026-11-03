@@ -20,8 +20,10 @@ body{margin:0;font:15px/1.5 system-ui;background:#f5f8fa;color:#202b33}.banner{p
 <div class="roam-block-container" data-block-uid="block0001"><div class="rm-block-main"><span class="rm-bullet" draggable="true" id="bullet"><span class="rm-bullet__inner">●</span></span><span class="rm-block-text" id="block-input-log-outline-block0001">Original content</span></div></div>
 <div class="roam-block-container" data-block-uid="child0001"><div class="rm-block-main"><span class="rm-bullet" draggable="true" id="child-bullet">●</span><span class="rm-block-text">Original child block</span></div></div>
 <div class="roam-block-container" id="editing-container"><div class="rm-block-main"><span class="rm-bullet" draggable="true" id="editing-bullet"><span class="rm-bullet__inner">●</span></span><textarea class="rm-block-input" id="block-input-log-outline-edited001">Currently editing this block</textarea></div></div>
+<div class="roam-block-container" id="native-editing-container" data-block-uid="native001"><div class="rm-block-main"><span class="rm-bullet" draggable="true" id="native-editing-bullet"><span class="rm-bullet__inner">●</span></span><textarea class="rm-block-input" id="block-input-log-outline-native001">Editing with native drag enabled</textarea></div></div>
 <div class="rm-reference-container"><div class="roam-block-container" data-block-uid="block0001"><span class="rm-bullet" draggable="true" id="reference-bullet">●</span>Reference view: not handled</div></div>
 <div id="ordinary-target" style="padding:16px;border:1px dashed #a7b6c2">Native drop area</div>
+<div id="native-reorder-target" style="padding:16px;border:1px dashed #5c7080;margin-top:8px">Native outline reorder target: <span id="native-reorders">0</span></div>
 </div></section>
 <section class="panel"><h2>Simulated destinations</h2><pre id="entries"></pre><p id="navigation"></p></section>
 <section class="panel"><button id="run-tests">Run browser integration tests</button> <button id="stop">Unload plugin</button><pre id="results"></pre></section>
