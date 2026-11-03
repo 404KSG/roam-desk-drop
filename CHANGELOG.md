@@ -8,7 +8,7 @@
 - Leave foreign native payloads and canceled payload-bearing drags to their owners; they cannot turn into sidebar captures. Clear an armed fallback when a modifier is introduced at `dragstart`.
 - Guard absent pointer gestures and make uncaught browser errors fail integration checks rather than allowing false-green reports.
 - Pass 57 Node tests and all 36 browser checks in source, bundle, and reduced-motion modes, with no uncaught errors. Trusted mouse comparisons reproduce the old blocked start, show normal native DOM reordering with the plugin disabled or fixed, and confirm native/canceled/empty sidebar capture plus source-text preservation.
-- Tests use an in-memory graph and native-shaped handlers, not a production Roam graph. Both source and Depot PRs remain Draft pending live-client acceptance.
+- Tests use an in-memory graph and native-shaped handlers, not a production Roam graph. Live-client acceptance remains pending and is not implied by PR review status.
 
 ## 0.2.2 - Clear outcomes
 
