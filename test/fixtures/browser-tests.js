@@ -18,7 +18,8 @@ function reset() {
   runtime?.stop(); fake = createFakeRoam(); navigation = 0; nativeReorders = 0;
   fake.records.set('edited001', { uid: 'edited001', string: 'Currently editing this block', parent: 'page00001', children: [], edited: 1 });
   fake.records.set('native001', { uid: 'native001', string: 'Editing with native drag enabled', parent: 'page00001', children: [], edited: 1 });
-  fake.records.get('page00001').children.push('edited001', 'native001');
+  fake.records.set('payload01', { uid: 'payload01', string: 'Editing with no native payload', parent: 'page00001', children: [], edited: 1 });
+  fake.records.get('page00001').children.push('edited001', 'native001', 'payload01');
   fake.hooks.afterCreate = render;
   window.roamAlphaAPI = fake.api;
   runtime = { start: () => lifecycle.onload(), stop: () => lifecycle.onunload() };
@@ -48,6 +49,9 @@ function pointerDrag(source, target) {
 for (const bullet of document.querySelectorAll('.rm-bullet')) bullet.addEventListener('dragstart', e => {
   // Model the native client: an edited block deliberately supplies no drag payload.
   if (bullet.id === 'editing-bullet') { e.preventDefault(); return; }
+  // An unconfigured native start must be canceled synchronously so the armed
+  // pointer fallback survives the browser's subsequent pointer cancellation.
+  if (bullet.id === 'payloadless-editing-bullet') return;
   const uid = bullet.closest('[data-block-uid]')?.dataset.blockUid;
   e.dataTransfer.setData('roam/block-uid-list-only-parents', uid);
   e.dataTransfer.setData('roam/block-uid-list', uid);
@@ -93,7 +97,7 @@ async function runTests() {
     const uid = fake.api.util.dateToPageUid(new Date());
     event('drop', $('#daily'), begin()); await waitFor(() => children(uid).length === 1);
     assert(children(uid)[0][':block/string'] === '{{embed-path: ((block0001)) closed}}', 'Wrong DNP content');
-    assert(fake.records.get('page00001').children.length === 3, 'Source page changed');
+    assert(fake.records.get('page00001').children.length === 4, 'Source page changed');
   });
   await check('A block already in today shows a clear informational result without a write', async () => {
     const row = $('#daily'), uid = fake.api.util.dateToPageUid(new Date());
@@ -153,7 +157,7 @@ async function runTests() {
       assert(!event('dragover', $(selector), dt).defaultPrevented && !event('drop', $(selector), dt).defaultPrevented, 'Unsupported target intercepted');
       assert(dt.dropEffect === 'move', 'Native cursor changed');
     }
-    await new Promise(requestAnimationFrame); assert(fake.snapshot().length === 8, 'Unexpected graph write');
+    await new Promise(requestAnimationFrame); assert(fake.snapshot().length === 9, 'Unexpected graph write');
   });
   await check('Cross-graph shortcut links and block links are not valid page writes', async () => {
     const anchor = $('#build').parentElement, old = anchor.getAttribute('href');
@@ -288,6 +292,26 @@ async function runTests() {
     window.dispatchEvent(new Event('dragend'));
     pointer('pointermove', $('#build')); pointer('pointerup', $('#build'));
     await waitFor(() => children('target001').length === 1);
+  });
+  await check('Uncanceled payload-less edited dragstart preserves pointer fallback', async () => {
+    const bullet = $('#payloadless-editing-bullet'), editor = $('#block-input-log-outline-payload01');
+    const before = structuredClone(fake.records.get('payload01'));
+    editor.focus(); pointer('pointerdown', bullet);
+    const dt = begin('#payloadless-editing-bullet');
+    assert(dt.__dragStartPrevented, 'Payload-less native dragstart was not canceled before pointer fallback');
+    pointer('pointermove', $('#build')); pointer('pointerup', $('#build'));
+    await waitFor(() => children('target001').length === 1);
+    assert(children('target001')[0][':block/string'] === '{{embed-path: ((payload01)) closed}}', 'Payload-less fallback used the wrong source');
+    assert(JSON.stringify(fake.records.get('payload01')) === JSON.stringify(before), 'Payload-less fallback changed the source');
+  });
+  await check('Modifiers introduced at edited dragstart cancel the pending pointer fallback', async () => {
+    for (const key of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
+      reset(); const bullet = $('#editing-bullet');
+      pointer('pointerdown', bullet); begin('#editing-bullet', { [key]: true });
+      pointer('pointermove', $('#build')); pointer('pointerup', $('#build'));
+      await new Promise(requestAnimationFrame);
+      assert(children('target001').length === 0, `Modified dragstart captured a block: ${key}`);
+    }
   });
   await check('Textarea-derived UIDs preserve hyphens and underscores', async () => {
     const editor = $('#block-input-log-outline-edited001'), oldID = editor.id;

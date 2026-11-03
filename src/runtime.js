@@ -160,26 +160,32 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     const bullet = sourceBullet(event.target);
     const pendingGesture = gesture && bullet === gesture.bullet ? gesture : null;
     resetDrag();
+    // The pointer gesture began without a modifier, but this native start did
+    // not. It must not become an unmodified pointer fallback later.
+    if (pendingGesture && hasModifier(event)) { cancelGesture(); return; }
     if (!bullet || hasModifier(event)) return;
-    let nativeSession;
     try {
-      nativeSession = session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || undefined };
+      // Capture runs before Roam's target handler. Defer classification until
+      // window bubble, after that handler has synchronously populated/canceled
+      // the native event.
+      session = { event, origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || undefined, pendingGesture };
       clearFeedback();
-    } catch (error) { showError(error); return; }
-    // This capture listener runs before Roam's target handler. Do not cancel or
-    // inspect the protected payload yet: the handler may synchronously provide it.
-    // A canceled or payload-less native start leaves the armed pointer gesture
-    // available for the bullet fallback.
-    queueMicrotask(() => {
-      if (!loaded || !isUsableNativeDrag(event)) {
-        if (session === nativeSession) resetDrag();
-        return;
-      }
-      if (gesture === pendingGesture) {
+    } catch (error) { showError(error); }
+  }
+  function onDragStartFinalized(event) {
+    const nativeSession = session;
+    if (!nativeSession || nativeSession.event !== event) return;
+    if (isUsableNativeDrag(event)) {
+      if (gesture === nativeSession.pendingGesture) {
         gesture.native = true;
         ui.clearPointerDrag();
       }
-    });
+      return;
+    }
+    // An uncanceled payload-less HTML drag would suppress pointer events. Stop
+    // only the matching fallback gesture; valid native drags remain untouched.
+    if (!event.defaultPrevented && gesture === nativeSession.pendingGesture) event.preventDefault();
+    if (session === nativeSession) resetDrag();
   }
   function onDragOver(event) {
     const target = rowFrom(event.target), effect = transferEffect(event.dataTransfer);
@@ -289,6 +295,7 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     } catch { clearFeedback(); }
   }
   const windowListeners = [['dragstart', onDragStart], ['dragend', () => { resetDrag(); if (gesture?.native) cancelGesture(); }], ['pointerdown', onPointerDown], ['pointermove', onPointerMove], ['pointerup', onPointerUp], ['pointercancel', cancelGesture], ['click', onClick], ['blur', onWindowBlur], ['keydown', onKeyDown], ['hashchange', onHashChange]];
+  const windowBubbleListeners = [['dragstart', onDragStartFinalized]];
   const documentListeners = [['dragenter', onDragOver], ['dragover', onDragOver], ['dragleave', onDragLeave], ['drop', onDrop]];
 
   return {
@@ -298,12 +305,14 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
       context = capture.getContext();
       loaded = true; ui.mount();
       for (const [type, listener] of windowListeners) windowRef.addEventListener(type, listener, true);
+      for (const [type, listener] of windowBubbleListeners) windowRef.addEventListener(type, listener);
       for (const [type, listener] of documentListeners) documentRef.addEventListener(type, listener, true);
     },
     stop() {
       if (stopped) return;
       stopped = true; loaded = false; controller.abort(); capture.dispose();
       for (const [type, listener] of windowListeners) windowRef.removeEventListener(type, listener, true);
+      for (const [type, listener] of windowBubbleListeners) windowRef.removeEventListener(type, listener);
       for (const [type, listener] of documentListeners) documentRef.removeEventListener(type, listener, true);
       resetDrag(); cancelGesture(); ui.dispose();
     },

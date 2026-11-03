@@ -4,8 +4,9 @@
 
 - Let Roam's native target `dragstart` handler populate an edited block's payload before deciding whether it is a usable native drag. Roam Drop no longer cancels that event at window capture phase.
 - Keep native outline reordering outside the sidebar available when the native payload is present, without changing its payload or `effectAllowed`.
-- Keep the bullet pointer fallback available when native setup is canceled or provides no usable Roam payload, including a canceled-start/`dragend` race.
-- Add Node coverage for native-drag eligibility and an in-memory browser fixture with both native-enabled and native-canceled edited bullets plus a native reorder counter. Evidence is local-only; no production graph was used.
+- Keep the bullet pointer fallback available when native setup is canceled or provides no usable Roam payload, including a canceled-start/`dragend` race. A matching uncanceled payload-less start is canceled only at window bubble phase, before browser drag handling can suppress the fallback.
+- Clear an armed pointer fallback if any supported modifier is introduced at `dragstart`.
+- Add Node coverage for native-drag eligibility and an in-memory browser fixture with native-enabled, native-canceled, and uncanceled payload-less edited bullets plus a native reorder counter. Evidence is local-only; no production graph was used.
 
 ## 0.2.2 - Clear outcomes
 

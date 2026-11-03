@@ -2,7 +2,7 @@
 
 ## Editing-drag regression
 
-The 0.2.3 local fixture reproduces the ordering defect with the real runtime listeners: before the fix, an edited bullet whose target handler supplies a Roam payload receives a canceled `dragstart` from the runtime's window-capture listener. The saved ignored RED log records that failure. After the fix, the focused Node regression and the fixture's native-enabled edited drag both pass; the latter retains its payload and completes an ordinary in-memory outline reorder outside the sidebar. A separate edited bullet still has its native start canceled and exercises the pointer fallback.
+The 0.2.3 local fixture reproduces the ordering defect with the real runtime listeners: before the fix, an edited bullet whose target handler supplies a Roam payload receives a canceled `dragstart` from the runtime's window-capture listener. The saved ignored RED log records that failure. After the fix, the focused Node regression and the fixture's native-enabled edited drag both pass; the latter retains its payload and completes an ordinary in-memory outline reorder outside the sidebar. Separate edited bullets cover a canceled native start and an uncanceled payload-less native start; each keeps its pointer fallback, creates one embed, and leaves its source unchanged. A modifier introduced at `dragstart` clears the matching fallback for Alt, Control, Meta, and Shift.
 
 This evidence is limited to the local in-memory fixture and its headless browser run. No production graph was opened or modified, and it is not a claim of live-client acceptance. Depot PR [#1511](https://github.com/Roam-Research/roam-depot/pull/1511) remains **Draft**.
 

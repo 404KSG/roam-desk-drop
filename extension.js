@@ -663,25 +663,30 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     const bullet = sourceBullet(event.target);
     const pendingGesture = gesture && bullet === gesture.bullet ? gesture : null;
     resetDrag();
+    if (pendingGesture && hasModifier(event)) {
+      cancelGesture();
+      return;
+    }
     if (!bullet || hasModifier(event)) return;
-    let nativeSession;
     try {
-      nativeSession = session = { origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || void 0 };
+      session = { event, origin: capture.getContext(), sourceUid: sourceUidFrom(bullet) || void 0, pendingGesture };
       clearFeedback();
     } catch (error) {
       showError(error);
-      return;
     }
-    queueMicrotask(() => {
-      if (!loaded || !isUsableNativeDrag(event)) {
-        if (session === nativeSession) resetDrag();
-        return;
-      }
-      if (gesture === pendingGesture) {
+  }
+  function onDragStartFinalized(event) {
+    const nativeSession = session;
+    if (!nativeSession || nativeSession.event !== event) return;
+    if (isUsableNativeDrag(event)) {
+      if (gesture === nativeSession.pendingGesture) {
         gesture.native = true;
         ui.clearPointerDrag();
       }
-    });
+      return;
+    }
+    if (!event.defaultPrevented && gesture === nativeSession.pendingGesture) event.preventDefault();
+    if (session === nativeSession) resetDrag();
   }
   function onDragOver(event) {
     const target = rowFrom(event.target), effect = transferEffect(event.dataTransfer);
@@ -826,6 +831,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     resetDrag();
     if (gesture?.native) cancelGesture();
   }], ["pointerdown", onPointerDown], ["pointermove", onPointerMove], ["pointerup", onPointerUp], ["pointercancel", cancelGesture], ["click", onClick], ["blur", onWindowBlur], ["keydown", onKeyDown], ["hashchange", onHashChange]];
+  const windowBubbleListeners = [["dragstart", onDragStartFinalized]];
   const documentListeners = [["dragenter", onDragOver], ["dragover", onDragOver], ["dragleave", onDragLeave], ["drop", onDrop]];
   return {
     start() {
@@ -835,6 +841,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
       loaded = true;
       ui.mount();
       for (const [type, listener] of windowListeners) windowRef.addEventListener(type, listener, true);
+      for (const [type, listener] of windowBubbleListeners) windowRef.addEventListener(type, listener);
       for (const [type, listener] of documentListeners) documentRef.addEventListener(type, listener, true);
     },
     stop() {
@@ -844,6 +851,7 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
       controller.abort();
       capture.dispose();
       for (const [type, listener] of windowListeners) windowRef.removeEventListener(type, listener, true);
+      for (const [type, listener] of windowBubbleListeners) windowRef.removeEventListener(type, listener);
       for (const [type, listener] of documentListeners) documentRef.removeEventListener(type, listener, true);
       resetDrag();
       cancelGesture();
