@@ -4,9 +4,11 @@
 
 - Let Roam's native target `dragstart` handler populate an edited block's payload before deciding whether it is a usable native drag. Roam Drop no longer cancels that event at window capture phase.
 - Keep native outline reordering outside the sidebar available when the native payload is present, without changing its payload or `effectAllowed`.
-- Keep the bullet pointer fallback available when native setup is canceled or provides no usable Roam payload, including a canceled-start/`dragend` race. A matching uncanceled payload-less start is canceled only at window bubble phase, before browser drag handling can suppress the fallback.
-- Clear an armed pointer fallback if any supported modifier is introduced at `dragstart`.
-- Add Node coverage for native-drag eligibility and an in-memory browser fixture with native-enabled, native-canceled, and uncanceled payload-less edited bullets plus a native reorder counter. Evidence is local-only; no production graph was used.
+- Keep the matching bullet pointer fallback available for empty native starts, including canceled-start/`dragend` races. Cancel an uncanceled empty start only at window bubble phase, before browser dragging can suppress the fallback. Never cancel an unowned start.
+- Leave foreign native payloads and canceled payload-bearing drags to their owners; they cannot turn into sidebar captures. Clear an armed fallback when a modifier is introduced at `dragstart`.
+- Guard absent pointer gestures and make uncaught browser errors fail integration checks rather than allowing false-green reports.
+- Pass 57 Node tests and all 36 browser checks in source, bundle, and reduced-motion modes, with no uncaught errors. Trusted mouse comparisons reproduce the old blocked start, show normal native DOM reordering with the plugin disabled or fixed, and confirm native/canceled/empty sidebar capture plus source-text preservation.
+- Tests use an in-memory graph and native-shaped handlers, not a production Roam graph. Both source and Depot PRs remain Draft pending live-client acceptance.
 
 ## 0.2.2 - Clear outcomes
 

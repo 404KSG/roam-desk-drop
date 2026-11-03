@@ -679,13 +679,18 @@ function createDeskDropRuntime({ windowRef, documentRef = windowRef.document, ge
     const nativeSession = session;
     if (!nativeSession || nativeSession.event !== event) return;
     if (isUsableNativeDrag(event)) {
-      if (gesture === nativeSession.pendingGesture) {
+      if (gesture && gesture === nativeSession.pendingGesture) {
         gesture.native = true;
         ui.clearPointerDrag();
       }
       return;
     }
-    if (!event.defaultPrevented && gesture === nativeSession.pendingGesture) event.preventDefault();
+    if (Array.from(event.dataTransfer?.types ?? []).length) {
+      if (gesture && gesture === nativeSession.pendingGesture) cancelGesture();
+      resetDrag();
+      return;
+    }
+    if (!event.defaultPrevented && gesture && gesture === nativeSession.pendingGesture) event.preventDefault();
     if (session === nativeSession) resetDrag();
   }
   function onDragOver(event) {

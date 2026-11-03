@@ -2,9 +2,34 @@
 
 ## Editing-drag regression
 
-The 0.2.3 local fixture reproduces the ordering defect with the real runtime listeners: before the fix, an edited bullet whose target handler supplies a Roam payload receives a canceled `dragstart` from the runtime's window-capture listener. The saved ignored RED log records that failure. After the fix, the focused Node regression and the fixture's native-enabled edited drag both pass; the latter retains its payload and completes an ordinary in-memory outline reorder outside the sidebar. Separate edited bullets cover a canceled native start and an uncanceled payload-less native start; each keeps its pointer fallback, creates one embed, and leaves its source unchanged. A modifier introduced at `dragstart` clears the matching fallback for Alt, Control, Meta, and Shift.
+The original runtime canceled every edited bullet's `dragstart` during window capture, before the native handler could populate its payload. An independent replay of `21d4471` with the current fixture reproduces that failure. The interim `4e23891` replay also reproduces the missing empty-start fallback and modifier-at-start defects. Later parent acceptance caught a null-gesture exception that had not failed the previous synthetic checks; integration checks now fail on uncaught errors and unhandled rejections.
 
-This evidence is limited to the local in-memory fixture and its headless browser run. No production graph was opened or modified, and it is not a claim of live-client acceptance. Depot PR [#1511](https://github.com/Roam-Research/roam-depot/pull/1511) remains **Draft**.
+The final runtime classifies the event after native target handlers run. Valid native starts remain uncanceled. Only an owned, empty-payload start can retain the sidebar pointer fallback. Foreign payloads, canceled payload-bearing drags, and starts without a matching pointer gesture cannot become fallback captures.
+
+### Final checks
+
+| Check | Result |
+|---|---|
+| Node tests | **57 passed** |
+| Browser source suite | **36 passed**, no uncaught errors |
+| Browser generated-bundle suite | **36 passed**, no uncaught errors |
+| Browser bundle with reduced motion | **36 passed**, no uncaught errors |
+| Trusted mouse, editing native block | Old plugin ON: native start canceled, no DOM reorder. Old plugin OFF: reorder succeeds. Fixed plugin ON or OFF: reorder succeeds. The editor is focused before each drag and its text stays unchanged. |
+| Trusted native/canceled/empty sidebar drops | Each creates exactly one embed; source records and editor text remain unchanged. |
+| Trusted foreign and canceled payload-bearing drags | No unintended sidebar entry and no source changes. |
+| Trusted editor selection | Selection changes from character 1 to 25 while text and the in-memory graph remain unchanged. |
+| Modifier-at-dragstart regression | Synthetic event sequence covers Alt, Control, Meta, and Shift; no unintended writes. The separate trusted modifier gesture did not expose a modified `dragstart`, so it is not evidence for that exact ordering. |
+| Build and static checks | Existing esbuild 0.28.1; syntax, exports, no network calls, no source move/update/delete calls, and whitespace checks pass. |
+
+The browser fixture has an actual DOM reorder handler, not just a drop counter. Its data model and Roam-shaped handlers are simulated. Real pointer input and browser-generated drag events verify event transport; they do **not** establish production Roam persistence or synchronization behavior. No real graph or installed extension was changed. Source PR [#1](https://github.com/404KSG/roam-desk-drop/pull/1) and Depot PR [#1511](https://github.com/Roam-Research/roam-depot/pull/1511) remain **Draft** pending live-client acceptance.
+
+[Before](../assets/editing-drag-before.png) / [after](../assets/editing-drag-after.png) show the same focused edited-block gesture in the isolated fixture. Raw machine-readable evidence is kept in ignored `artifacts/parent-historical-red.json`, `parent-runtime-red.json`, `parent-foreign-drag-red.json`, `parent-final-browser-green.json`, `parent-trusted-drags.json`, `parent-trusted-safety.json`, and `parent-trusted-selection.json`.
+
+Final `extension.js` SHA256:
+
+```text
+12de658a61c3fb762422829aaed820271d126c0e2287feda0f886109a78da5a1
+```
 
 ## 0.2.2 historical verification
 

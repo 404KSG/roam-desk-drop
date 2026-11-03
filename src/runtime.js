@@ -176,15 +176,21 @@ export function createDeskDropRuntime({ windowRef, documentRef = windowRef.docum
     const nativeSession = session;
     if (!nativeSession || nativeSession.event !== event) return;
     if (isUsableNativeDrag(event)) {
-      if (gesture === nativeSession.pendingGesture) {
+      if (gesture && gesture === nativeSession.pendingGesture) {
         gesture.native = true;
         ui.clearPointerDrag();
       }
       return;
     }
+    // A payload we do not accept is not an empty native start. Leave other
+    // editors' drags (and payload-bearing cancellations) to their owners.
+    if (Array.from(event.dataTransfer?.types ?? []).length) {
+      if (gesture && gesture === nativeSession.pendingGesture) cancelGesture();
+      resetDrag(); return;
+    }
     // An uncanceled payload-less HTML drag would suppress pointer events. Stop
     // only the matching fallback gesture; valid native drags remain untouched.
-    if (!event.defaultPrevented && gesture === nativeSession.pendingGesture) event.preventDefault();
+    if (!event.defaultPrevented && gesture && gesture === nativeSession.pendingGesture) event.preventDefault();
     if (session === nativeSession) resetDrag();
   }
   function onDragOver(event) {

@@ -2,7 +2,11 @@ import { createFakeRoam } from '../fake-roam.js';
 const bundleMode = new URLSearchParams(location.search).has('bundle');
 const lifecycle = (await import(bundleMode ? '../../extension.js' : '../../src/extension-entry.js')).default;
 let fake, runtime, navigation = 0, nativeReorders = 0;
+const runtimeErrors = [];
+window.addEventListener('error', event => runtimeErrors.push(event.error?.message || event.message));
+window.addEventListener('unhandledrejection', event => runtimeErrors.push(String(event.reason?.message || event.reason)));
 const $ = selector => document.querySelector(selector);
+const nativeOutline = $('.roam-article'), initialOutlineChildren = [...nativeOutline.children];
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const waitFor = async (predicate, timeout = 1800) => {
   const end = performance.now() + timeout;
@@ -16,6 +20,7 @@ function render() {
 }
 function reset() {
   runtime?.stop(); fake = createFakeRoam(); navigation = 0; nativeReorders = 0;
+  for (const child of initialOutlineChildren) nativeOutline.append(child);
   fake.records.set('edited001', { uid: 'edited001', string: 'Currently editing this block', parent: 'page00001', children: [], edited: 1 });
   fake.records.set('native001', { uid: 'native001', string: 'Editing with native drag enabled', parent: 'page00001', children: [], edited: 1 });
   fake.records.set('payload01', { uid: 'payload01', string: 'Editing with no native payload', parent: 'page00001', children: [], edited: 1 });
@@ -63,7 +68,12 @@ $('#native-reorder-target').addEventListener('dragover', e => {
 });
 $('#native-reorder-target').addEventListener('drop', e => {
   if (!e.dataTransfer.types.includes('roam/block-uid-list-only-parents')) return;
-  e.preventDefault(); nativeReorders++; render();
+  const uid = e.dataTransfer.getData('roam/block-uid-list-only-parents');
+  const source = [...nativeOutline.querySelectorAll('[data-block-uid]')].find(node => node.dataset.blockUid === uid);
+  if (!source) return;
+  e.preventDefault(); nativeReorders++;
+  $('#native-reorder-target').insertAdjacentElement('afterend', source);
+  render();
 });
 $('#stop').addEventListener('click', () => runtime.stop());
 
@@ -71,8 +81,9 @@ async function runTests() {
   assert(document.hasFocus(), 'Focus the fixture before running integration checks');
   const report = [];
   async function check(name, fn) {
+    const errorOffset = runtimeErrors.length;
     reset();
-    try { await fn(); report.push({ name, ok: true }); }
+    try { await fn(); await Promise.resolve(); assert(runtimeErrors.length === errorOffset, `Unhandled runtime error: ${runtimeErrors.slice(errorOffset).join('; ')}`); report.push({ name, ok: true }); }
     catch (error) { report.push({ name, ok: false, error: error.message }); }
     $('#results').textContent = JSON.stringify(report, null, 2);
   }
@@ -255,6 +266,31 @@ async function runTests() {
       assert(getComputedStyle(count).visibility === 'visible' && count.textContent === '42', 'New count was not restored');
     } finally { count.remove(); }
   });
+  await check('Native starts without a matching pointer gesture are never canceled or dereferenced', async () => {
+    const native = begin('#native-editing-bullet');
+    assert(!native.__dragStartPrevented, 'Native start without a pointer gesture was canceled');
+    const payloadless = begin('#payloadless-editing-bullet');
+    assert(!payloadless.__dragStartPrevented, 'An unowned payload-less native start was canceled');
+    assert(!document.querySelector('.rr-desk-drop-pointer-ghost'), 'An unowned drag acquired a pointer ghost');
+  });
+  await check('Foreign native payloads and canceled payload-bearing drags never become sidebar fallbacks', async () => {
+    for (const scenario of ['foreign', 'foreign-canceled', 'native-canceled']) {
+      reset(); const bullet = $('#native-editing-bullet');
+      const cancel = scenario.endsWith('canceled');
+      const handler = event => {
+        if (scenario.startsWith('foreign')) { event.dataTransfer.clearData(); event.dataTransfer.setData('application/x-other-editor-block', 'other-editor-data'); }
+        if (cancel) event.preventDefault();
+      };
+      bullet.addEventListener('dragstart', handler);
+      try {
+        pointer('pointerdown', bullet); const dt = begin('#native-editing-bullet');
+        assert(dt.__dragStartPrevented === cancel, 'A foreign native drag was canceled by Roam Drop');
+        pointer('pointermove', $('#build')); pointer('pointerup', $('#build'));
+        await new Promise(requestAnimationFrame);
+        assert(children('target001').length === 0, `A non-owned native drag became a sidebar fallback: ${scenario}`);
+      } finally { bullet.removeEventListener('dragstart', handler); }
+    }
+  });
   await check('Native-enabled edited drags retain their payload and reorder outside the sidebar', async () => {
     const bullet = $('#native-editing-bullet'), reorder = $('#native-reorder-target');
     bullet.closest('.roam-block-container').querySelector('textarea').focus();
@@ -265,6 +301,7 @@ async function runTests() {
     assert(dt.types.includes('roam/block-uid-list-only-parents'), 'Native handler did not retain its Roam payload');
     assert(event('dragover', reorder, dt).defaultPrevented, 'Native outline reorder target rejected the drag');
     assert(event('drop', reorder, dt).defaultPrevented && nativeReorders === 1, 'Native outline reorder did not complete');
+    assert(reorder.nextElementSibling === $('#native-editing-container'), 'Native handler did not move the edited DOM block');
     window.dispatchEvent(new Event('dragend'));
     assert(fake.records.get('target001').children.length === 0, 'Ordinary native reorder was captured by the sidebar');
   });
@@ -430,5 +467,5 @@ async function runTests() {
   window.__deskDropTestResults = report; return report;
 }
 $('#run-tests').addEventListener('click', runTests);
-window.__deskDropFixture = { reset, runTests, snapshot: () => fake.snapshot(), runtime: () => runtime, fake: () => fake, begin, event, pointer, point };
+window.__deskDropFixture = { reset, runTests, snapshot: () => fake.snapshot(), runtime: () => runtime, fake: () => fake, errors: () => [...runtimeErrors], begin, event, pointer, point };
 reset();
