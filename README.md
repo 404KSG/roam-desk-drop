@@ -8,16 +8,6 @@ Use it to gather meeting actions, reading excerpts, or project notes without reo
 
 *0.2.2 sandbox demo, not a production graph.*
 
-## Try the preview
-
-**Version 0.2.3** is under review in [Source PR #1](https://github.com/404KSG/roam-desk-drop/pull/1) and [Depot PR #1511](https://github.com/Roam-Research/roam-depot/pull/1511). Until the Depot submission is merged, use Roam Depot's developer-mode preview:
-
-```text
-404KSG+roam-desk-drop+1511
-```
-
-No API key or local Helper is needed.
-
 ## How to use
 
 1. Make the left sidebar visible. Grab **one block's bullet** in the main or right-sidebar outline, even while editing.
