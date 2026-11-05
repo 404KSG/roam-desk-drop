@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.2.3 - Preserve native edited-block drags
+
+- Let Roam's native target `dragstart` handler populate an edited block's payload before deciding whether it is a usable native drag. Roam Drop no longer cancels that event at window capture phase.
+- Keep native outline reordering outside the sidebar available when the native payload is present, without changing its payload or `effectAllowed`.
+- Keep the matching bullet pointer fallback available for empty native starts, including canceled-start/`dragend` races. Cancel an uncanceled empty start only at window bubble phase, before browser dragging can suppress the fallback. Never cancel an unowned start.
+- Leave foreign native payloads and canceled payload-bearing drags to their owners; they cannot turn into sidebar captures. Clear an armed fallback when a modifier is introduced at `dragstart`.
+- Guard absent pointer gestures and make uncaught browser errors fail integration checks rather than allowing false-green reports.
+- Pass 57 Node tests and all 36 browser checks in source, bundle, and reduced-motion modes, with no uncaught errors. Trusted mouse comparisons reproduce the old blocked start, show normal native DOM reordering with the plugin disabled or fixed, and confirm native/canceled/empty sidebar capture plus source-text preservation.
+- Tests use an in-memory graph and native-shaped handlers, not a production Roam graph. Live-client acceptance remains pending and is not implied by PR review status.
+
+## 0.2.2 - Clear outcomes
+
+- Align the Roam Drop name and concise description across the repository landing page, current preview, package metadata, and Depot listing. Keep legacy installation identifiers unchanged; this copy update does not change runtime behavior.
+- Treat blocks already on the destination page as an informational result with no graph write. Daily Notes explicitly says **Already in today's note**.
+- Distinguish existing embeds with a neutral circled check and **Already added**, reserving the green check for newly added entries.
+- Show short, destination-anchored explanations for existing content for 1.8 seconds. Explain real failures immediately for 2.2 seconds, with details available again on hover or keyboard focus.
+- Keep the fixed far-right feedback slot, count coverage/restoration, native navigation, and 900ms new-add confirmation.
+- Remove contextual explanations on new drags, Escape, graph changes, scroll/resize, or unload; retain accessible labels and the live region.
+- Add no-write same-page coverage and browser regressions for distinct outcomes, immediate explanations, focus access, and cleanup.
+
+## 0.2.1 - Roam Drop and far-right feedback
+
+- Rename the extension to **Roam Drop**. Retain the existing Depot identifier and runtime key so the same listing and preview continue to work.
+- Fix the feedback slot 10px from the row's right edge, with or without a reference count. The plus, spinner, green check, and warning share that slot.
+- Temporarily cover reference counts while feedback is visible, preserving their layout space, styles, and current values. Restore them on completion, leaving, cancellation, context changes, or unload.
+- Cover counts added or updated while feedback is active, without shifting the icon or overwriting count data.
+- Strengthen browser regressions for far-right placement, count coverage/restoration, and unchanged row geometry. Refresh the sandbox image to show the new name and placement.
+
+## 0.2.0 - Sidebar page destinations
+
+- Extend collection to Daily Notes, native Desk, and starred pages in the left sidebar. Daily Notes uses today's local date; starred pages use their linked page identity.
+- Keep the same native embed and source hierarchy. Deduplicate independently per destination and reject captures into the source page itself.
+- Support bullet dragging while a block's editor has a cursor, with a pointer fallback, text preview, and grabbing cursor for the native client's suppressed drag setup.
+- Keep the hover plus; show a green success check in exactly the same slot for approximately 900ms, including while hovered.
+- Remove inline Undo, receipts, and the entry-delete action.
+- Freeze the Daily Notes date before queueing; check cancellation during DNP resolution before creating a missing page.
+- Preserve shortcut reference counts, native navigation, modifier gestures, cancellation, and unload cleanup.
+- Add destination, DNP, edited-block, pointer/native interaction, feedback, and lifecycle regression coverage. Keep Depot PR #1511 in Draft for continued review.
+
 ## 0.1.3 - Copy feedback and background-only target
 
 - Prefer native `copy` feedback for ordinary accepted drags instead of the macOS link/alias cursor. The data operation remains a native embed, not a source-text copy or move.
@@ -36,4 +75,4 @@
 - Leave modifier-key drags and drops outside Desk to the existing handlers.
 - Clean up listeners and transient UI on unload.
 
-Validation includes automated tests, an in-memory browser fixture, and an author-recorded demonstration of the basic desktop drop/card path. Structured live-graph source/Undo checks, cross-client and failure-mode coverage, and coexistence with installed drag extensions remain follow-up work.
+Validation uses automated tests and an in-memory browser fixture. An earlier author-recorded demonstration covers the Desk-only interaction from 0.1.3. Live cross-client and synchronization checks, concurrent devices, and full coexistence with installed drag extensions remain follow-up work.

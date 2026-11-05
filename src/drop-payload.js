@@ -12,7 +12,7 @@ export function readDropPayload(transfer, origin, expectedSourceUid) {
   if (!isSafeUid(uids[0])) throw new DeskDropError('INVALID_UID', 'Could not safely identify the dragged block.');
   if (expectedSourceUid && expectedSourceUid !== uids[0]) throw new DeskDropError('SOURCE_CHANGED', 'The drag source does not match its payload. Clear the selection and try again.');
   const uris = lines(transfer.getData('roam/roam-uri-list'));
-  if (!uris.length || uris.length > 1000) throw new DeskDropError('INVALID_PAYLOAD', 'Could not confirm the source graph. Nothing was added to Desk.');
+  if (!uris.length || uris.length > 1000) throw new DeskDropError('INVALID_PAYLOAD', 'Could not confirm the source graph. Nothing was added.');
   const parsed = uris.map(uri => {
     try {
       const url = new URL(uri);
@@ -21,7 +21,7 @@ export function readDropPayload(transfer, origin, expectedSourceUid) {
       if (!trusted || !match) throw new Error('Unsupported URI');
       return { type: match[1] === 'app' ? 'hosted' : 'offline', graph: decodeURIComponent(match[2]), uid: decodeURIComponent(match[3]) };
     } catch {
-      throw new DeskDropError('INVALID_PAYLOAD', 'Could not recognize the native Roam link. Nothing was added to Desk.');
+      throw new DeskDropError('INVALID_PAYLOAD', 'Could not recognize the native Roam link. Nothing was added.');
     }
   });
   if (parsed.some(item => item.graph !== origin?.graphName || item.type !== origin?.graphType)) {

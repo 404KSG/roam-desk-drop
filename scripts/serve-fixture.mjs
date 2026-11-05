@@ -18,5 +18,5 @@ const server = createServer(async (request, response) => {
     response.end(request.method === 'HEAD' ? undefined : body);
   } catch { response.writeHead(404); response.end('Not found'); }
 });
-server.listen(port, '127.0.0.1', () => console.log(`Desk Drop in-memory test page: http://127.0.0.1:${port}`));
+server.listen(port, '127.0.0.1', () => console.log(`Roam Drop in-memory test page: http://127.0.0.1:${port}`));
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));

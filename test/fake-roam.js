@@ -1,7 +1,16 @@
+const pageUid = date => `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${date.getFullYear()}`;
+const pageTitle = date => {
+  const day = date.getDate();
+  const suffix = day >= 11 && day <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] || 'th');
+  return `${date.toLocaleString('en-US', { month: 'long' })} ${day}${suffix}, ${date.getFullYear()}`;
+};
+
 export function createFakeRoam() {
   const records = new Map([
     ['desk-user-one', { uid: 'desk-user-one', title: 'Worksurface (renamed)', children: [] }],
-    ['page00001', { uid: 'page00001', title: 'Daily Notes', children: ['block0001'] }],
+    ['target001', { uid: 'target001', title: 'Build', children: [] }],
+    ['target002', { uid: 'target002', title: 'Reading List: Inbox', children: [] }],
+    ['page00001', { uid: 'page00001', title: 'Source page', children: ['block0001'] }],
     ['block0001', { uid: 'block0001', string: 'Original content', parent: 'page00001', children: ['child0001'], edited: 1 }],
     ['child0001', { uid: 'child0001', string: 'Original child block', parent: 'block0001', children: [], edited: 1 }],
   ]);
@@ -32,7 +41,7 @@ export function createFakeRoam() {
   const api = {
     graph: { name: 'Test graph', type: 'hosted' },
     user: { uid: () => currentUser },
-    util: { generateUID: () => `new${String(++nextId).padStart(6, '0')}` },
+    util: { generateUID: () => `new${String(++nextId).padStart(6, '0')}`, dateToPageUid: pageUid, dateToPageTitle: pageTitle },
     data: {
       pull(selector, lookup) {
         hooks.onPull?.(selector, lookup);
@@ -40,12 +49,24 @@ export function createFakeRoam() {
           const u = users.get(lookup[1]);
           return u ? { ':user/uid': lookup[1], ...(u.desk ? { ':user/desk-page': u.desk } : {}) } : null;
         }
+        if (lookup[0] === ':node/title') {
+          const record = [...records.values()].find(r => r.title === lookup[1]);
+          return record ? pullBlock(record.uid) : null;
+        }
         if (lookup[0] !== ':block/uid') throw new Error('Unexpected lookup');
         return pullBlock(lookup[1]);
       },
       q(query, uid) {
         if (!query.includes(':user/desk-page')) throw new Error('Unexpected query');
         return [...users.values()].some(u => u.desk === uid) ? 1 : null;
+      },
+      page: {
+        async create({ page }) {
+          await hooks.beforePageCreate?.(page);
+          if ([...records.values()].some(record => record.title === page.title) || records.has(page.uid)) throw new Error('Page already exists');
+          records.set(page.uid, { uid: page.uid, title: page.title, children: [] });
+          await hooks.afterPageCreate?.(page);
+        },
       },
       block: {
         async create({ location, block }) {
